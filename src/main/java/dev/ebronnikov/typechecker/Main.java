@@ -40,8 +40,8 @@ public class Main {
         stellaLexer lexer = new stellaLexer(CharStreams.fromString(example));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         stellaParser parser = new stellaParser(tokens);
-        stellaParser.ExprContext parseTree = parser.expr();
+        stellaParser.ProgramContext parseTree = parser.program();
 
-        System.out.println(parseTree.toStringTree());
+        System.out.println(parseTree.toStringTree(parser));
     }
 }
