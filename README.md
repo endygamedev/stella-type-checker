@@ -6,7 +6,9 @@ stella-type-checker
 __Генерирование парсера__
 
 ```shell
-antlr4 src/main/antlr/stellaLexer.g4 src/main/antlr/stellaParser.g4
+antlr4 src/main/antlr/stellaLexer.g4 src/main/antlr/stellaParser.g4 \
+    -visitor
+    -long-messages
 ```
 
 __Сборка__
