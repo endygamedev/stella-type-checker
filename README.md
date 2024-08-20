@@ -7,7 +7,7 @@ __Генерирование парсера__
 
 ```shell
 antlr4 src/main/antlr/stellaLexer.g4 src/main/antlr/stellaParser.g4 \
-    -visitor
+    -visitor \
     -long-messages
 ```
 
