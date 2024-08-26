@@ -629,7 +629,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        ArrayList<PatternContext> patterns = (ArrayList<PatternContext>) cases.stream()
+        List<PatternContext> patterns = cases.stream()
                 .map(MatchCaseContext::pattern)
                 .toList();
 
@@ -738,7 +738,7 @@ public final class TypeInferrer {
         return resultType;
     }
 
-    private boolean arePatternsExhaustive(ArrayList<PatternContext> patterns, Type type) {
+    private boolean arePatternsExhaustive(List<PatternContext> patterns, Type type) {
         return hasAny(patterns) || switch (type) {
             case BoolType ignored -> areBoolPatternsExhaustive(patterns);
             case NatType ignored -> areNatPatternsExhaustive(patterns);
@@ -754,14 +754,14 @@ public final class TypeInferrer {
         };
     }
 
-    private boolean areBoolPatternsExhaustive(ArrayList<PatternContext> patterns) {
+    private boolean areBoolPatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
                     .anyMatch(pattern -> pattern instanceof PatternTrueContext) &&
                 patterns.stream()
                     .anyMatch(pattern -> pattern instanceof PatternFalseContext);
     }
 
-    private boolean areNatPatternsExhaustive(ArrayList<PatternContext> patterns) {
+    private boolean areNatPatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
                     .anyMatch(pattern -> pattern instanceof PatternIntContext) &&
                 patterns.stream()
@@ -769,19 +769,19 @@ public final class TypeInferrer {
                                 ((PatternSuccContext) pattern).pattern_ instanceof PatternVarContext);
     }
 
-    private boolean areSumTypePatternsExhaustive(ArrayList<PatternContext> patterns) {
+    private boolean areSumTypePatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
                     .anyMatch(pattern -> pattern instanceof PatternInlContext) &&
                 patterns.stream()
                     .anyMatch(pattern -> pattern instanceof PatternInrContext);
     }
 
-    private boolean areUnitPatternsExhaustive(ArrayList<PatternContext> patterns) {
+    private boolean areUnitPatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
                 .anyMatch(pattern -> pattern instanceof PatternUnitContext);
     }
 
-    private boolean areVariantPatternsExhaustive(ArrayList<PatternContext> patterns, VariantType type) {
+    private boolean areVariantPatternsExhaustive(List<PatternContext> patterns, VariantType type) {
         HashSet<String> labelsInType = new HashSet<>(type.getLabels());
         HashSet<String> labelsInPattern = (HashSet<String>) patterns.stream()
                 .filter(pattern -> pattern instanceof PatternVariantContext)
@@ -790,12 +790,12 @@ public final class TypeInferrer {
         return labelsInPattern.containsAll(labelsInType);
     }
 
-    private boolean hasAny(ArrayList<PatternContext> patterns) {
+    private boolean hasAny(List<PatternContext> patterns) {
         return patterns.stream()
                 .anyMatch(pattern -> pattern instanceof PatternVarContext);
     }
 
-    private PatternContext findWrongPattern(ArrayList<PatternContext> patterns, Type type) {
+    private PatternContext findWrongPattern(List<PatternContext> patterns, Type type) {
         return switch (type) {
             case BoolType ignored -> findWrongBoolPattern(patterns);
             case NatType ignored -> findWrongNatPattern(patterns);
@@ -815,7 +815,7 @@ public final class TypeInferrer {
         };
     }
 
-    private PatternContext findWrongBoolPattern(ArrayList<PatternContext> patterns) {
+    private PatternContext findWrongBoolPattern(List<PatternContext> patterns) {
         return patterns.stream()
                 .filter(pattern -> pattern instanceof PatternTrueContext ||
                         pattern instanceof PatternFalseContext ||
@@ -824,7 +824,7 @@ public final class TypeInferrer {
                 .orElse(null);
     }
 
-    private PatternContext findWrongNatPattern(ArrayList<PatternContext> patterns) {
+    private PatternContext findWrongNatPattern(List<PatternContext> patterns) {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternIntContext) &&
@@ -835,7 +835,7 @@ public final class TypeInferrer {
                 .orElse(null);
     }
 
-    private PatternContext findWrongSumTypePattern(ArrayList<PatternContext> patterns) {
+    private PatternContext findWrongSumTypePattern(List<PatternContext> patterns) {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternInlContext) &&
@@ -845,7 +845,7 @@ public final class TypeInferrer {
                 .orElse(null);
     }
 
-    private PatternContext findWrongUnitPattern(ArrayList<PatternContext> patterns) {
+    private PatternContext findWrongUnitPattern(List<PatternContext> patterns) {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternUnitContext) &&
@@ -854,7 +854,7 @@ public final class TypeInferrer {
                 .orElse(null);
     }
 
-    private PatternContext findNotVarPattern(ArrayList<PatternContext> patterns) {
+    private PatternContext findNotVarPattern(List<PatternContext> patterns) {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternVarContext))
@@ -862,7 +862,7 @@ public final class TypeInferrer {
                 .orElse(null);
     }
 
-    private PatternContext findWrongVariantPattern(ArrayList<PatternContext> patterns, VariantType type) {
+    private PatternContext findWrongVariantPattern(List<PatternContext> patterns, VariantType type) {
         HashSet<String> labelsInType = new HashSet<>(type.getLabels());
         return patterns.stream()
                 .filter(pattern ->
@@ -998,7 +998,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        ArrayList<Type> expressionTypes = (ArrayList<Type>) expressions.stream()
+        List<Type> expressionTypes = expressions.stream()
                 .map(expr -> visitExpression(expr, null))
                 .toList();
 
@@ -1030,7 +1030,7 @@ public final class TypeInferrer {
         return new ListType(listType.getType());
     }
 
-    private int findFirstWrongTypedExpressionIndex(ArrayList<Type> expressionTypes, ListType listType) {
+    private int findFirstWrongTypedExpressionIndex(List<Type> expressionTypes, ListType listType) {
         for (int i = 0; i < expressionTypes.size(); ++i) {
             if (expressionTypes.get(i) != null && !expressionTypes.get(i).equals(listType.getType())) {
                 return i;
@@ -1260,7 +1260,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        if (!actualType.equals(expectedType)) {
+        if (actualType == null || !actualType.equals(expectedType)) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,

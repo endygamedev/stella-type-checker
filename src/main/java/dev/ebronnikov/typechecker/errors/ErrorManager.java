@@ -10,7 +10,7 @@ final public class ErrorManager {
         errors.add(error);
     }
 
-    ArrayList<Error> getErrors() {
+    public ArrayList<Error> getErrors() {
         return errors;
     }
 }

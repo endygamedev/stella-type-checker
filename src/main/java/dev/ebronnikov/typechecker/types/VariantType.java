@@ -1,14 +1,15 @@
 package dev.ebronnikov.typechecker.types;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public final class VariantType extends Type {
-    private final ArrayList<String> labels;
-    private final ArrayList<Type> types;
+    private final List<String> labels;
+    private final List<Type> types;
     private final String name;
 
-    public VariantType(ArrayList<String> labels, ArrayList<Type> types) {
+    public VariantType(List<String> labels, List<Type> types) {
         super(true);
         this.labels = labels;
         this.types = types;
@@ -17,11 +18,11 @@ public final class VariantType extends Type {
                 .collect(Collectors.joining(", ", "<|", "|>"));
     }
 
-    public ArrayList<Type> getTypes() {
+    public List<Type> getTypes() {
         return types;
     }
 
-    public ArrayList<String> getLabels() {
+    public List<String> getLabels() {
         return labels;
     }
 

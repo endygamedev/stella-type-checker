@@ -3,6 +3,7 @@ package dev.ebronnikov.typechecker.types;
 import dev.ebronnikov.antlr.stellaParser.*;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public final class SyntaxTypeProcessor {
@@ -52,10 +53,10 @@ public final class SyntaxTypeProcessor {
     }
 
     private static Type visitVariantType(TypeVariantContext ctx) {
-        ArrayList<String> labels = (ArrayList<String>) ctx.fieldTypes.stream()
+        List<String> labels = ctx.fieldTypes.stream()
                 .map(field -> field.label.getText())
                 .toList();
-        ArrayList<Type> types = (ArrayList<Type>) ctx.fieldTypes.stream()
+        List<Type> types = ctx.fieldTypes.stream()
                 .map(field -> getType(field.type_))
                 .toList();
         return new VariantType(labels, types);
