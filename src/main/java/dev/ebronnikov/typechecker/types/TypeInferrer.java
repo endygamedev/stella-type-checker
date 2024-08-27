@@ -59,21 +59,21 @@ public final class TypeInferrer {
     }
 
     private BoolType visitIsZero(IsZeroContext ctx) {
-        if (visitExpression(ctx.n, NatType.INSTANCE) != null) {
+        if (visitExpression(ctx.n, NatType.INSTANCE) == NatType.INSTANCE) {
             return BoolType.INSTANCE;
         }
         return null;
     }
 
     private NatType visitSucc(SuccContext ctx) {
-        if (visitExpression(ctx.n, NatType.INSTANCE) != null) {
+        if (visitExpression(ctx.n, NatType.INSTANCE) == NatType.INSTANCE) {
             return NatType.INSTANCE;
         }
         return null;
     }
 
     private NatType visitPred(PredContext ctx) {
-        if (visitExpression(ctx.n, NatType.INSTANCE) != null) {
+        if (visitExpression(ctx.n, NatType.INSTANCE) == NatType.INSTANCE) {
             return NatType.INSTANCE;
         }
         return null;
@@ -511,17 +511,17 @@ public final class TypeInferrer {
 
     private Type visitIf(IfContext ctx, Type expectedType) {
         Type conditionType = visitExpression(ctx.condition, BoolType.INSTANCE);
-        if (conditionType == null) {
+        if (conditionType != BoolType.INSTANCE) {
             return null;
         }
 
         Type thenType = visitExpression(ctx.thenExpr, expectedType);
-        if (thenType == null) {
+        if (thenType != expectedType) {
             return null;
         }
 
         Type elseType = visitExpression(ctx.elseExpr, expectedType);
-        if (elseType == null) {
+        if (elseType != expectedType) {
             return null;
         }
 
