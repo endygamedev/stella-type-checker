@@ -1,14 +1,14 @@
 package dev.ebronnikov.typechecker.types;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public final class RecordType extends Type {
-    private final ArrayList<String> labels;
-    private final ArrayList<Type> types;
+    private final List<String> labels;
+    private final List<Type> types;
     private final String name;
 
-    public RecordType(ArrayList<String> labels, ArrayList<Type> types, boolean isKnownType) {
+    public RecordType(List<String> labels, List<Type> types, boolean isKnownType) {
         super(isKnownType);
 
         if (labels.size() != types.size()) {
@@ -23,7 +23,7 @@ public final class RecordType extends Type {
                 : "UnknownRecord";
     }
 
-    public RecordType(ArrayList<String> labels, ArrayList<Type> types) {
+    public RecordType(List<String> labels, List<Type> types) {
         this(labels, types, true);
     }
 
@@ -32,11 +32,11 @@ public final class RecordType extends Type {
         return name;
     }
 
-    public ArrayList<String> getLabels() {
+    public List<String> getLabels() {
         return labels;
     }
 
-    public ArrayList<Type> getTypes() {
+    public List<Type> getTypes() {
         return types;
     }
 

@@ -23,7 +23,7 @@ public class ErrorMessages {
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_FIELD_ACCESS, "unexpected field access %s in record %s"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_TUPLE_INDEX_OUT_OF_BOUNDS, "tuple index %s is out of bounds %s"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_TUPLE_LENGTH, "expected %s components for a tuple but got %s in tuple %s"),
-            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_SUM_TYPES, "can't infer injection type for %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_SUM_TYPE, "can't infer injection type for %s"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_LIST, "can't infer the list %s type"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_ILLEGAL_EMPTY_MATCHING, "empty alternatives list for %s"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS, "non-exhaustive patterns for type %s"),

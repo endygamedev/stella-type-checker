@@ -1,14 +1,15 @@
 package dev.ebronnikov.typechecker.types;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public final class TupleType extends Type {
-    private final ArrayList<Type> types;
+    private final List<Type> types;
     private final int arity;
     private final String name;
 
-    public TupleType(ArrayList<Type> types, boolean isKnownType) {
+    public TupleType(List<Type> types, boolean isKnownType) {
         super(isKnownType);
         this.types = types;
         this.arity = types.size();
@@ -18,11 +19,11 @@ public final class TupleType extends Type {
                 : "UnknownTuple";
     }
 
-    public TupleType(ArrayList<Type> types) {
+    public TupleType(List<Type> types) {
         this(types, true);
     }
 
-    public ArrayList<Type> getTypes() {
+    public List<Type> getTypes() {
         return types;
     }
 

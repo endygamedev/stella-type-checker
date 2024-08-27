@@ -130,7 +130,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        ArrayList<String> declaredLabels = recordType.getLabels();
+        List<String> declaredLabels = recordType.getLabels();
         if (!declaredLabels.contains(label)) {
             if (errorManager != null) {
                 errorManager.registerError(
@@ -143,7 +143,7 @@ public final class TypeInferrer {
         }
 
         int labelIndex = declaredLabels.indexOf(label);
-        ArrayList<Type> types = recordType.getTypes();
+        List<Type> types = recordType.getTypes();
         Type type = types.get(labelIndex);
 
         return validateTypes(type, expectedType, ctx);
@@ -234,11 +234,11 @@ public final class TypeInferrer {
 
         RecordType expectedRecordType = (RecordType) expectedType;
         var bindingsContext = ctx.bindings;
-        ArrayList<String> labels = (ArrayList<String>) bindingsContext.stream()
+        List<String> labels = bindingsContext.stream()
                 .map(bind -> bind.name.getText())
                 .toList();
 
-        ArrayList<Type> types = (ArrayList<Type>) bindingsContext.stream()
+        List<Type> types = bindingsContext.stream()
                 .map(bind -> visitExpression(bind.rhs, null))
                 .filter(Objects::nonNull)
                 .toList();
@@ -259,8 +259,8 @@ public final class TypeInferrer {
 
     private boolean canRecordDefMatchExpectedType(
             RecordType expectedRecord,
-            ArrayList<String> actualLabels,
-            ArrayList<Type> actualTypes,
+            List<String> actualLabels,
+            List<Type> actualTypes,
             RecordContext ctx
     ) {
         HashSet<String> expectedLabelsSet = new HashSet<>(expectedRecord.getLabels());
@@ -558,8 +558,8 @@ public final class TypeInferrer {
             return  null;
         }
 
-        ArrayList<ExprContext> content = (ArrayList<ExprContext>) ctx.exprs;
-        ArrayList<Type> contentTypes = (ArrayList<Type>) content.stream()
+        List<ExprContext> content = ctx.exprs;
+        List<Type> contentTypes = content.stream()
                 .map(expr -> visitExpression(expr, null))
                 .toList();
 
@@ -567,7 +567,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        return new TupleType((ArrayList<Type>) contentTypes.stream()
+        return new TupleType(contentTypes.stream()
                 .filter(Objects::nonNull)
                 .toList()
         );
@@ -878,7 +878,7 @@ public final class TypeInferrer {
         if (expectedType == null) {
             if (errorManager != null) {
                 errorManager.registerError(
-                        ErrorType.ERROR_AMBIGUOUS_SUM_TYPES,
+                        ErrorType.ERROR_AMBIGUOUS_SUM_TYPE,
                         ctx
                 );
             }
@@ -908,7 +908,7 @@ public final class TypeInferrer {
         if (expectedType == null) {
             if (errorManager != null) {
                 errorManager.registerError(
-                        ErrorType.ERROR_AMBIGUOUS_SUM_TYPES,
+                        ErrorType.ERROR_AMBIGUOUS_SUM_TYPE,
                         ctx
                 );
             }
