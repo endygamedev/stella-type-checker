@@ -32,7 +32,7 @@ public class Runner {
         assertFalse(typeCheckResult.primaryError.isEmpty());
 
         ErrorType actual = typeCheckResult.primaryError.get().errorType();
-        assertEquals(actual, errorType, typeCheckResult.formattedError);
+        assertEquals(errorType, actual, typeCheckResult.formattedError);
     }
 
     private static TypeCheckResult getTypeCheckResult(Path testPath) {
