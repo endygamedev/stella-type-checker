@@ -22,6 +22,11 @@ java {
     }
 }
 
+task<JavaExec>("generateTests") {
+    classpath = java.sourceSets["test"].runtimeClasspath
+    mainClass = "utils.generator.Main"
+}
+
 tasks.test {
     useJUnitPlatform()
 }
