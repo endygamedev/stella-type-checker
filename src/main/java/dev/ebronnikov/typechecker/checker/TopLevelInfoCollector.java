@@ -19,7 +19,12 @@ public class TopLevelInfoCollector extends stellaParserBaseVisitor<Void> {
     public Void visitDeclFun(stellaParser.DeclFunContext ctx) {
         String name = AntlrUtils.getFunctionName(ctx);
 
-        var argType = SyntaxTypeProcessor.getType(ctx.paramDecl.paramType);
+        var paramDecl = ctx.paramDecls.stream().findFirst().orElse(null);
+        if (paramDecl == null) {
+            return null;
+        }
+
+        var argType = SyntaxTypeProcessor.getType(paramDecl.paramType);
         var returnType = SyntaxTypeProcessor.getType(ctx.returnType);
         var functionType = new FunctionalType(argType, returnType);
 

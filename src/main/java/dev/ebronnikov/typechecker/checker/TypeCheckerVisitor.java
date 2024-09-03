@@ -3,6 +3,7 @@ package dev.ebronnikov.typechecker.checker;
 import dev.ebronnikov.antlr.stellaParserBaseVisitor;
 import dev.ebronnikov.antlr.stellaParser;
 import dev.ebronnikov.typechecker.errors.ErrorManager;
+import dev.ebronnikov.typechecker.types.SyntaxTypeProcessor;
 import dev.ebronnikov.typechecker.types.TypeContext;
 import dev.ebronnikov.typechecker.types.TypeInferrer;
 import dev.ebronnikov.typechecker.utils.AntlrUtils;
@@ -25,9 +26,25 @@ public class TypeCheckerVisitor extends stellaParserBaseVisitor<Void> {
     public Void visitProgram(stellaParser.ProgramContext ctx) {
         TopLevelInfoCollector topLevelInfoCollector = new TopLevelInfoCollector(typeContext);
         topLevelInfoCollector.visitProgram(ctx);
-        return super.visitProgram(ctx);
+        for (stellaParser.DeclContext decl : ctx.decls) {
+            visitDecl(decl);
+        }
+        return null;
     }
 
+    private void visitDecl(stellaParser.DeclContext ctx) {
+        if (ctx instanceof stellaParser.DeclFunContext declFunContext) {
+            visitDeclFun(declFunContext);
+        } else if (ctx instanceof stellaParser.DeclExceptionTypeContext declExceptionTypeContext) {
+            visitDeclExceptionType(declExceptionTypeContext);
+        }
+    }
+
+    @Override
+    public Void visitDeclExceptionType(stellaParser.DeclExceptionTypeContext ctx) {
+        typeContext.setExceptionType(SyntaxTypeProcessor.getType(ctx.exceptionType));
+        return null;
+    }
 
     @Override
     public Void visitDeclFun(stellaParser.DeclFunContext ctx) {

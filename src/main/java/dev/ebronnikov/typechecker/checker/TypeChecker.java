@@ -17,7 +17,6 @@ public class TypeChecker implements Checker {
     @Override
     public void check(stellaParser.ProgramContext programContext) {
         addExtensions(programContext.extensions);
-
         checkerVisitor.visitProgram(programContext);
     }
 
@@ -26,7 +25,7 @@ public class TypeChecker implements Checker {
                 .filter(ctx -> ctx instanceof stellaParser.AnExtensionContext)
                 .map(ctx -> (stellaParser.AnExtensionContext) ctx)
                 .flatMap(ctx -> ctx.extensionNames.stream())
-                .map(name -> name.getText().replace("^#", ""))
+                .map(name -> name.getText().replace("#", ""))
                 .map(Extension::fromString)
                 .toList();
 

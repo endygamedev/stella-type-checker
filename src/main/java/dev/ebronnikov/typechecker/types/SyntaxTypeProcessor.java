@@ -12,6 +12,8 @@ public final class SyntaxTypeProcessor {
             case TypeBoolContext ignored -> BoolType.INSTANCE;
             case TypeUnitContext ignored -> UnitType.INSTANCE;
             case TypeNatContext ignored -> NatType.INSTANCE;
+            case TypeTopContext ignored -> TopType.INSTANCE;
+            case TypeBottomContext ignored -> BotType.INSTANCE;
             case TypeTupleContext typeTupleContext -> visitTupleType(typeTupleContext);
             case TypeRecordContext typeRecordContext -> visitRecordType(typeRecordContext);
             case TypeFunContext typeFunContext -> visitFunctionalType(typeFunContext);
@@ -19,6 +21,7 @@ public final class SyntaxTypeProcessor {
             case TypeSumContext typeSumContext -> visitSumTypeType(typeSumContext);
             case TypeVariantContext typeVariantContext -> visitVariantType(typeVariantContext);
             case TypeListContext typeListContext -> visitListType(typeListContext);
+            case TypeRefContext typeRefContext -> visitRefType(typeRefContext);
             default -> UnknownType.INSTANCE;
         };
     }
@@ -65,5 +68,10 @@ public final class SyntaxTypeProcessor {
     private static Type visitListType(TypeListContext ctx) {
         Type type = getType(ctx.type_);
         return new ListType(type);
+    }
+
+    private static Type visitRefType(TypeRefContext ctx) {
+        Type type = getType(ctx.type_);
+        return new ReferenceType(type);
     }
 }
