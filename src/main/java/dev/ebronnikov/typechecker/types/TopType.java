@@ -1,24 +1,24 @@
 package dev.ebronnikov.typechecker.types;
 
-public final class UnknownType extends Type {
-    public static final UnknownType INSTANCE = new UnknownType();
+public final class TopType extends Type {
+    public static final TopType INSTANCE = new TopType();
 
-    private UnknownType() {
-        super(false);
+    public TopType() {
+        super(true);
     }
 
     @Override
     public String getName() {
-        return "Unknown";
+        return "Top";
     }
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof Type;
+        return other instanceof TopType;
     }
 
     @Override
     public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
-        return true;
+        return this.equals(other);
     }
 }

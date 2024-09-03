@@ -3,6 +3,7 @@ package dev.ebronnikov.typechecker.types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public final class TupleType extends Type {
     private final List<Type> types;
@@ -45,5 +46,17 @@ public final class TupleType extends Type {
         if (other == null || getClass() != other.getClass()) return false;
         TupleType tupleType = (TupleType) other;
         return types.equals(tupleType.types);
+    }
+
+    @Override
+    public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
+        if (this.equals(other)) return true;
+        if (!subtypingEnabled) return false;
+        if (other instanceof TupleType otherTuple) {
+            if (this.types.size() != otherTuple.types.size()) return false;
+            return IntStream.range(0, this.types.size())
+                    .allMatch(i -> this.types.get(i).isSubtypeOf(otherTuple.types.get(i), subtypingEnabled));
+        }
+        return false;
     }
 }

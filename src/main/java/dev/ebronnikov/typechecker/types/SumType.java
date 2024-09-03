@@ -31,4 +31,9 @@ public final class SumType extends Type {
         SumType sumType = (SumType) other;
         return left.equals(sumType.left) && right.equals(sumType.right);
     }
+
+    @Override
+    public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
+        return true;
+    }
 }

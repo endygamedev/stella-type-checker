@@ -30,6 +30,14 @@ public class ErrorMessages {
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_PATTERN_FOR_TYPE, "unexpected pattern %s for type %s"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL, "unexpected variant label %s in %s of type %s"),
             new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_VARIANT, "expected type %s but got variant variant type"),
-            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE, "can't infer injection type of variant %s")
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE, "can't infer injection type of variant %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_REFERENCE, "got reference %s, but expected type %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_NOT_A_REFERENCE, "expected reference, but got %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_PANIC_TYPE, "ambiguous panic type for expression %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_THROW_TYPE, "cannot infer type for throw %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_AMBIGUOUS_REFERENCE_TYPE, "cannot infer type for reference %s"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_MEMORY_ADDRESS, "unexpected memory address while %s is expected"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_EXCEPTION_TYPE_NOT_DECLARED, "exception type is not declared"),
+            new AbstractMap.SimpleEntry<>(ErrorType.ERROR_UNEXPECTED_SUBTYPE, "expected subtype of %s but got type %s in %s")
     );
 }

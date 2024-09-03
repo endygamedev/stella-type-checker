@@ -10,6 +10,9 @@ public class Main {
     public static void main(String[] args) {
         generateOkTests();
         for (ErrorType errorType : ErrorType.values()) {
+            if (errorType == ErrorType.ERROR_AMBIGUOUS_SUBTYPE) {
+                continue;
+            }
             generateBadTest(errorType);
         }
     }

@@ -19,4 +19,9 @@ public final class NatType extends Type {
         }
         return other instanceof NatType;
     }
+
+    @Override
+    public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
+        return true;
+    }
 }

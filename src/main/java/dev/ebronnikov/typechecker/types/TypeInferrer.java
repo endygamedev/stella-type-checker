@@ -1,20 +1,23 @@
 package dev.ebronnikov.typechecker.types;
 
 import dev.ebronnikov.antlr.stellaParser.*;
+import dev.ebronnikov.typechecker.checker.Extension;
+import dev.ebronnikov.typechecker.checker.ExtensionManager;
 import dev.ebronnikov.typechecker.errors.ErrorManager;
 import dev.ebronnikov.typechecker.errors.ErrorType;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class TypeInferrer {
     private final ErrorManager errorManager;
+    private final ExtensionManager extensionManager;
     private final TypeContext context;
 
-    public TypeInferrer(ErrorManager errorManager, TypeContext parentContext) {
+    public TypeInferrer(ErrorManager errorManager, ExtensionManager extensionManager, TypeContext parentContext) {
         this.errorManager = errorManager;
+        this.extensionManager = extensionManager;
         this.context = new TypeContext(parentContext);
     }
 
@@ -50,6 +53,16 @@ public final class TypeInferrer {
             case HeadContext headContext -> visitHead(headContext, expectedType);
             case TailContext tailContext -> visitTail(tailContext, expectedType);
             case IsEmptyContext isEmptyContext -> visitIsEmpty(isEmptyContext, expectedType);
+            case SequenceContext sequenceContext -> visitSequence(sequenceContext, expectedType);
+            case RefContext refContext -> visitRef(refContext, expectedType);
+            case ConstMemoryContext constMemoryContext -> visitConstMemory(constMemoryContext, expectedType);
+            case DerefContext derefContext -> visitDeref(derefContext, expectedType);
+            case AssignContext assignContext -> visitAssign(assignContext, expectedType);
+            case PanicContext panicContext -> visitPanic(panicContext, expectedType);
+            case ThrowContext throwContext -> visitThrow(throwContext, expectedType);
+            case TryWithContext tryWithContext -> visitTryWith(tryWithContext, expectedType);
+            case TryCatchContext tryCatchContext -> visitTryCatch(tryCatchContext, expectedType);
+            case TypeCastContext typeCastContext -> visitTypeCast(typeCastContext, expectedType);
             default -> {
                 System.out.printf("Unsupported syntax for %s%n", ctx.getClass().getSimpleName());
                 yield null;
@@ -174,7 +187,7 @@ public final class TypeInferrer {
         TypeContext innerContext = new TypeContext(context);
         innerContext.saveVariableType(arg.name.getText(), argType);
 
-        TypeInferrer innerInferrer = new TypeInferrer(errorManager, innerContext);
+        TypeInferrer innerInferrer = new TypeInferrer(errorManager, extensionManager, innerContext);
 
         var returnExpr = ctx.returnExpr;
         Type returnType = innerInferrer.visitExpression(returnExpr, null);
@@ -350,7 +363,7 @@ public final class TypeInferrer {
         TypeContext letContext = new TypeContext(context);
         letContext.saveVariableType(name, expressionType);
 
-        TypeInferrer letTypeInferrer = new TypeInferrer(errorManager, letContext);
+        TypeInferrer letTypeInferrer = new TypeInferrer(errorManager, extensionManager, letContext);
         return letTypeInferrer.visitExpression(ctx.body, expectedType);
     }
 
@@ -659,7 +672,7 @@ public final class TypeInferrer {
         Type resultType = null;
         for (MatchCaseContext caseCtx : cases) {
             TypeContext caseContext = new TypeContext(context);
-            TypeInferrer caseInferrer = new TypeInferrer(errorManager, caseContext);
+            TypeInferrer caseInferrer = new TypeInferrer(errorManager, extensionManager, caseContext);
 
             PatternContext pattern = caseCtx.pattern_;
             ExprContext bodyExpr = caseCtx.expr_;
@@ -1172,10 +1185,234 @@ public final class TypeInferrer {
         return BoolType.INSTANCE;
     }
 
+    private Type visitSequence(SequenceContext ctx, Type expectedType) {
+        if (visitExpression(ctx.expr1, UnitType.INSTANCE) == null) {
+            return null;
+        }
+        return visitExpression(ctx.expr2, expectedType);
+    }
+
+    private ReferenceType visitRef(RefContext ctx, Type expectedType) {
+        if (expectedType != null && !(expectedType instanceof ReferenceType) && !(expectedType instanceof TopType)) {
+            ReferenceType ref = visitRef(ctx, null);
+            if (ref == null) {
+                return null;
+            }
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_REFERENCE,
+                    ref,
+                    expectedType
+            );
+            return null;
+        }
+
+        Type innerExpectedType = (expectedType instanceof ReferenceType referenceType)
+                ? referenceType.getInnerType()
+                : null;
+
+        Type innerType = visitExpression(ctx.expr_, innerExpectedType);
+        if (innerType == null) {
+            return null;
+        }
+
+        return new ReferenceType(innerType);
+    }
+
+    private Type visitConstMemory(ConstMemoryContext ctx, Type expectedType) {
+        if (expectedType == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_AMBIGUOUS_REFERENCE_TYPE,
+                    ctx
+            );
+            return null;
+        }
+
+        if (!(expectedType instanceof ReferenceType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_MEMORY_ADDRESS,
+                    ctx,
+                    expectedType
+            );
+            return null;
+        }
+
+        return expectedType;
+    }
+
+    private Type visitDeref(DerefContext ctx, Type expectedType) {
+        ReferenceType expectedRefType = (expectedType != null) ? new ReferenceType(expectedType) : null;
+        Type refType = visitExpression(ctx.expr_, expectedRefType);
+
+        if (refType == null) {
+            return null;
+        }
+
+        if (!(refType instanceof ReferenceType referenceType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_REFERENCE,
+                    refType
+            );
+            return null;
+        }
+
+        return validateTypes(referenceType.getInnerType(), expectedType, ctx);
+    }
+
+    private UnitType visitAssign(AssignContext ctx, Type expectedType) {
+        if (expectedType != null && !(expectedType instanceof UnitType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    UnitType.INSTANCE,
+                    expectedType,
+                    ctx
+            );
+            return null;
+        }
+
+        Type lhsType = visitExpression(ctx.lhs, null);
+        if (lhsType == null) {
+            return null;
+        }
+
+        if (!(lhsType instanceof ReferenceType lhsRefType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_REFERENCE,
+                    lhsType
+            );
+            return null;
+        }
+
+        Type rhsType = visitExpression(ctx.rhs, null);
+        if (rhsType == null) {
+            return null;
+        }
+
+        if (!lhsRefType.getInnerType().equals(rhsType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    lhsRefType.getInnerType(),
+                    rhsType,
+                    ctx
+            );
+            return null;
+        }
+
+        return UnitType.INSTANCE;
+    }
+
+    private Type visitPanic(PanicContext ctx, Type expectedType) {
+        if (expectedType == null) {
+            if (extensionManager.isAmbiguousTypeAsBottom()) {
+                return BotType.INSTANCE;
+            }
+            errorManager.registerError(
+                    ErrorType.ERROR_AMBIGUOUS_PANIC_TYPE,
+                    ctx
+            );
+
+            return null;
+        }
+
+        return expectedType;
+    }
+
+    private Type visitThrow(ThrowContext ctx, Type expectedType) {
+        if (expectedType == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_AMBIGUOUS_THROW_TYPE,
+                    ctx
+            );
+            return null;
+        }
+
+        Type exceptionType = context.getExceptionType();
+        if (exceptionType == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_EXCEPTION_TYPE_NOT_DECLARED
+            );
+            return null;
+        }
+
+        if (visitExpression(ctx.expr_, exceptionType) == null) {
+            return null;
+        }
+
+        return expectedType;
+    }
+
+    private Type visitTryWith(TryWithContext ctx, Type expectedType) {
+        Type mainType = visitExpression(ctx.tryExpr, expectedType);
+        if (mainType == null) {
+            return null;
+        }
+
+        if (visitExpression(ctx.fallbackExpr, mainType) == null) {
+            return null;
+        }
+
+        return mainType;
+    }
+
+    private Type visitTryCatch(TryCatchContext ctx, Type expectedType) {
+        Type mainType = visitExpression(ctx.tryExpr, expectedType);
+        if (mainType == null) {
+            return null;
+        }
+
+        if (visitExpression(ctx.fallbackExpr, expectedType) == null) {
+            return null;
+        }
+
+        return mainType;
+    }
+
+    private Type visitTypeCast(TypeCastContext ctx, Type expectedType) {
+        if (visitExpression(ctx.expr_, null) == null) {
+            return null;
+        }
+
+        Type actualType = SyntaxTypeProcessor.getType(ctx.type_);
+
+        return validateTypes(actualType, expectedType, ctx);
+    }
 
     private Type validateTypes(Type actualType, Type expectedType, ParserRuleContext expression) {
         if (expectedType == null) {
             return actualType;
+        }
+
+        if (actualType.isSubtypeOf(expectedType, extensionManager.isStructuralSubtyping())) {
+            return expectedType;
+        }
+
+        if (actualType instanceof RecordType actualRecordType && expectedType instanceof RecordType expectedRecordType) {
+            boolean result = validateRecords(actualRecordType, expectedRecordType, expression);
+            if (result) {
+                return expectedType;
+            }
+            return null;
+        }
+
+        if (actualType instanceof VariantType actualVariantType && expectedType instanceof VariantType expectedVariantType) {
+            List<String> expectedLabels = expectedVariantType.getLabels();
+            List<String> actualLabels = actualVariantType.getLabels();
+
+            if (!expectedLabels.containsAll(actualLabels)) {
+                String missingLabel = expectedLabels.stream()
+                        .filter(label -> !actualLabels.contains(label))
+                        .findFirst()
+                        .orElse(null);
+
+                if (missingLabel != null) {
+                    errorManager.registerError(
+                            ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL,
+                            missingLabel,
+                            expression,
+                            actualType
+                    );
+                }
+                return null;
+            }
         }
 
         if (actualType instanceof FunctionalType && !(expectedType instanceof FunctionalType)) {
@@ -1272,6 +1509,121 @@ public final class TypeInferrer {
             return null;
         }
 
+        if (extensionManager.isStructuralSubtyping()) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_SUBTYPE,
+                    expectedType,
+                    actualType,
+                    expression
+            );
+        } else {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    expectedType,
+                    actualType,
+                    expression
+            );
+        }
+
         return actualType;
+    }
+
+    private boolean validateRecords(RecordType expectedRecord, RecordType actualRecord, ParserRuleContext ctx) {
+        if (!expectedRecord.equals(actualRecord) && !extensionManager.isStructuralSubtyping()) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    expectedRecord,
+                    actualRecord,
+                    ctx
+            );
+            return false;
+        }
+
+        Set<Map.Entry<String, Type>> missingFields = new HashSet<>(expectedRecord.getLabels().size());
+        Set<Map.Entry<String, Type>> extraFields = new HashSet<>(actualRecord.getLabels().size());
+
+        Set<Map.Entry<String, Type>> expectedEntries = zip(expectedRecord.getLabels(), expectedRecord.getTypes());
+        Set<Map.Entry<String, Type>> actualEntries = zip(actualRecord.getLabels(), actualRecord.getTypes());
+
+        missingFields.addAll(actualEntries);
+        missingFields.removeAll(expectedEntries);
+
+        if (!missingFields.isEmpty()) {
+            if (extensionManager.isStructuralSubtyping() && missingFields.stream().allMatch(entry -> actualRecord.getLabels().contains(entry.getKey()))) {
+                errorManager.registerError(
+                        ErrorType.ERROR_UNEXPECTED_SUBTYPE,
+                        expectedRecord,
+                        actualRecord,
+                        ctx
+                );
+                return false;
+            }
+
+            Map.Entry<String, Type> missingField = missingFields.iterator().next();
+            errorManager.registerError(
+                    ErrorType.ERROR_MISSING_RECORD_FIELDS,
+                    missingField.getKey(),
+                    expectedRecord
+            );
+            return false;
+        }
+
+        if (!extraFields.isEmpty() && !extensionManager.isStructuralSubtyping()) {
+            Map.Entry<String, Type> extraField = extraFields.iterator().next();
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_RECORD_FIELDS,
+                    extraField.getKey(),
+                    expectedRecord
+            );
+            return false;
+        }
+
+        for (Map.Entry<String, Type> entry : zip(actualRecord.getLabels(), actualRecord.getTypes())) {
+            String label = entry.getKey();
+            Type type = entry.getValue();
+
+            int expectedTypeForLabelIdx = expectedRecord.getLabels().indexOf(label);
+            Type expectedTypeForLabel = (expectedTypeForLabelIdx >= 0) ? expectedRecord.getTypes().get(expectedTypeForLabelIdx) : null;
+
+            if (type instanceof RecordType) {
+                if (!(expectedTypeForLabel instanceof RecordType)) {
+                    errorManager.registerError(
+                            ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                            expectedTypeForLabel,
+                            type,
+                            ctx
+                    );
+                    return false;
+                }
+
+                if (!validateRecords((RecordType) expectedTypeForLabel, (RecordType) type, ctx)) {
+                    return false;
+                }
+            } else {
+                if (!type.equals(expectedTypeForLabel)) {
+                    if (!(expectedTypeForLabel instanceof RecordType)) {
+                        errorManager.registerError(
+                                ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                                expectedTypeForLabel,
+                                type,
+                                ctx
+                        );
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private Set<Map.Entry<String, Type>> zip(List<String> labels, List<Type> types) {
+        Set<Map.Entry<String, Type>> entries = new HashSet<>();
+        for (int i = 0; i < labels.size(); ++i) {
+            String label = labels.get(i);
+            Type type = types.get(i);
+            entries.add(new AbstractMap.SimpleEntry<>(label, type));
+        }
+        return entries;
     }
 }
