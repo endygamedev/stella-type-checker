@@ -6,6 +6,7 @@ import dev.ebronnikov.typechecker.checker.ExtensionManager;
 import dev.ebronnikov.typechecker.errors.ErrorManager;
 import dev.ebronnikov.typechecker.errors.ErrorType;
 import org.antlr.v4.runtime.ParserRuleContext;
+import dev.ebronnikov.typechecker.utils.Pair;
 
 import java.util.*;
 
@@ -33,7 +34,8 @@ public final class TypeInferrer {
             case DotRecordContext dotRecordContext -> visitDotRecord(dotRecordContext, expectedType);
             case AbstractionContext abstractionContext -> visitAbstraction(abstractionContext, expectedType);
             case ApplicationContext applicationContext -> visitApplication(applicationContext, expectedType);
-            case ParenthesisedExprContext parenthesisedExprContext -> visitExpression(parenthesisedExprContext.expr_, expectedType);
+            case ParenthesisedExprContext parenthesisedExprContext ->
+                    visitExpression(parenthesisedExprContext.expr_, expectedType);
             case RecordContext recordContext -> visitRecord(recordContext, expectedType);
             case LetContext letContext -> visitLet(letContext, expectedType);
             case TypeAscContext typeAscContext -> visitTypeAsc(typeAscContext, expectedType);
@@ -41,7 +43,8 @@ public final class TypeInferrer {
             case DotTupleContext dotTupleContext -> visitDotTuple(dotTupleContext, expectedType);
             case IfContext ifContext -> visitIf(ifContext, expectedType);
             case TupleContext tupleContext -> visitTuple(tupleContext, expectedType);
-            case TerminatingSemicolonContext terminatingSemicolonContext -> visitExpression(terminatingSemicolonContext.expr_, expectedType);
+            case TerminatingSemicolonContext terminatingSemicolonContext ->
+                    visitExpression(terminatingSemicolonContext.expr_, expectedType);
             case FixContext fixContext -> visitFix(fixContext, expectedType);
             case MatchContext matchContext -> visitMatch(matchContext, expectedType);
             case InlContext inlContext -> visitInl(inlContext, expectedType);
@@ -287,7 +290,7 @@ public final class TypeInferrer {
         extraFields.removeAll(expectedLabelsSet);
 
         if (!extraFields.isEmpty()) {
-            if(errorManager != null) {
+            if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_RECORD_FIELDS,
                         extraFields.iterator().next(),
@@ -332,19 +335,19 @@ public final class TypeInferrer {
                     return false;
                 }
             } else {
-               if (!type.equals(expectedTypeForLabel)) {
-                   if (!(expectedTypeForLabel instanceof RecordType)) {
-                       if (errorManager != null) {
-                           errorManager.registerError(
-                                   ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                                   expectedTypeForLabel,
-                                   type,
-                                   ctx
-                           );
-                       }
-                       return false;
-                   }
-               }
+                if (!type.equals(expectedTypeForLabel)) {
+                    if (!(expectedTypeForLabel instanceof RecordType)) {
+                        if (errorManager != null) {
+                            errorManager.registerError(
+                                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                                    expectedTypeForLabel,
+                                    type,
+                                    ctx
+                            );
+                        }
+                        return false;
+                    }
+                }
             }
         }
 
@@ -545,7 +548,7 @@ public final class TypeInferrer {
                         ctx.elseExpr
                 );
             }
-            return  null;
+            return null;
         }
 
         return elseType;
@@ -566,7 +569,7 @@ public final class TypeInferrer {
                 );
             }
 
-            return  null;
+            return null;
         }
 
         List<ExprContext> content = ctx.exprs;
@@ -759,7 +762,7 @@ public final class TypeInferrer {
 
         Type leftType = sumType.getLeft();
 
-        if (visitExpression(ctx.expr_, leftType)== null) {
+        if (visitExpression(ctx.expr_, leftType) == null) {
             return null;
         }
 
@@ -789,7 +792,7 @@ public final class TypeInferrer {
 
         Type rightType = sumType.getRight();
 
-        if (visitExpression(ctx.expr_, rightType)== null) {
+        if (visitExpression(ctx.expr_, rightType) == null) {
             return null;
         }
 
@@ -800,8 +803,8 @@ public final class TypeInferrer {
         if (expectedType == null) {
             if (errorManager != null) {
                 errorManager.registerError(
-                    ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE,
-                    ctx
+                        ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE,
+                        ctx
                 );
             }
             return null;
@@ -810,8 +813,8 @@ public final class TypeInferrer {
         if (!(expectedType instanceof VariantType variantType)) {
             if (errorManager != null) {
                 errorManager.registerError(
-                    ErrorType.ERROR_UNEXPECTED_VARIANT,
-                    expectedType
+                        ErrorType.ERROR_UNEXPECTED_VARIANT,
+                        expectedType
                 );
             }
             return null;
@@ -875,10 +878,10 @@ public final class TypeInferrer {
         ListType listType = (expectedType instanceof ListType)
                 ? (ListType) expectedType
                 : expressionTypes.stream()
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .map(ListType::new)
-                    .orElse(null);
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(ListType::new)
+                .orElse(null);
 
         if (listType == null) return null;
 
@@ -1382,13 +1385,13 @@ public final class TypeInferrer {
         return true;
     }
 
-    private Set<Map.Entry<String, Type>> zip(List<String> labels, List<Type> types) {
-        Set<Map.Entry<String, Type>> entries = new HashSet<>();
-        for (int i = 0; i < labels.size(); ++i) {
-            String label = labels.get(i);
-            Type type = types.get(i);
-            entries.add(new AbstractMap.SimpleEntry<>(label, type));
+        private Set<Map.Entry<String, Type>> zip(List < String > labels, List < Type > types){
+            Set<Map.Entry<String, Type>> entries = new HashSet<>();
+            for (int i = 0; i < labels.size(); ++i) {
+                String label = labels.get(i);
+                Type type = types.get(i);
+                entries.add(new AbstractMap.SimpleEntry<>(label, type));
+            }
+            return entries;
         }
-        return entries;
     }
-}

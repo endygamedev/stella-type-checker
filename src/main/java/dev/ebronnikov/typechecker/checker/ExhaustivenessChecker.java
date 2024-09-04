@@ -22,40 +22,48 @@ public class ExhaustivenessChecker {
             PatternContext pattern,
             Type expectedType,
             ErrorManager errorManager) {
+        Class<? extends Type> patternType;
 
-        var patternType = switch (pattern) {
-            case PatternVariantContext ignored -> VariantType.class;
-            case PatternInlContext ignored -> SumType.class;
-            case PatternInrContext ignored -> SumType.class;
-            case PatternTupleContext ignored -> TupleType.class;
-            case PatternRecordContext ignored -> RecordType.class;
-            case PatternListContext ignored -> ListType.class;
-            case PatternConsContext ignored -> ListType.class;
-            case PatternFalseContext ignored -> BoolType.class;
-            case PatternTrueContext ignored -> BoolType.class;
-            case PatternUnitContext ignored -> UnitType.class;
-            case PatternIntContext ignored -> NatType.class;
-            case PatternSuccContext ignored -> NatType.class;
-            case PatternVarContext ignored -> {
-                yield true;
+        if (pattern instanceof PatternVariantContext) {
+            patternType = VariantType.class;
+        } else if (pattern instanceof PatternInlContext ||
+                pattern instanceof PatternInrContext) {
+            patternType = SumType.class;
+        } else if (pattern instanceof PatternTupleContext) {
+            patternType = TupleType.class;
+        } else if (pattern instanceof PatternRecordContext) {
+            patternType = RecordType.class;
+        } else if (pattern instanceof PatternListContext ||
+                pattern instanceof PatternConsContext) {
+            patternType = ListType.class;
+        } else if (pattern instanceof PatternFalseContext ||
+                pattern instanceof PatternTrueContext) {
+            patternType = BoolType.class;
+        } else if (pattern instanceof PatternUnitContext) {
+            patternType = UnitType.class;
+        } else if (pattern instanceof PatternIntContext ||
+                pattern instanceof PatternSuccContext) {
+            patternType = NatType.class;
+        } else if (pattern instanceof PatternVarContext) {
+            return true;
+        } else if (pattern instanceof PatternAscContext) {
+            Type ascType = SyntaxTypeProcessor.getType(((PatternAscContext) pattern).type_);
+            if (!ascType.equals(expectedType)) {
+                errorManager.registerError(
+                        ErrorType.ERROR_UNEXPECTED_PATTERN_FOR_TYPE,
+                        pattern,
+                        expectedType
+                );
+                return false;
             }
-            case PatternAscContext ascContext -> {
-                Type ascType = SyntaxTypeProcessor.getType(ascContext.type_);
-                if (!ascType.equals(expectedType)) {
-                    errorManager.registerError(
-                            ErrorType.ERROR_UNEXPECTED_PATTERN_FOR_TYPE,
-                            pattern,
-                            expectedType);
-                    yield false;
-                }
-                yield checkForPatternTypeMismatch(ascContext.pattern_, ascType, errorManager);
-            }
-            case ParenthesisedPatternContext parenthesisedPatternContext ->
-                    checkForPatternTypeMismatch(parenthesisedPatternContext.pattern_, expectedType, errorManager);
-            default -> throw new IllegalStateException("Unsupported pattern: " + pattern.getClass());
-        };
+            return checkForPatternTypeMismatch(((PatternAscContext) pattern).pattern_, ascType, errorManager);
+        } else if (pattern instanceof ParenthesisedPatternContext) {
+            return checkForPatternTypeMismatch(((ParenthesisedPatternContext) pattern).pattern_, expectedType, errorManager);
+        } else {
+            throw new IllegalArgumentException("Unsupported pattern: " + pattern.getClass());
+        }
 
-        return validatePatternType(expectedType, (Class<? extends Type>) patternType, pattern, errorManager);
+        return validatePatternType(expectedType, patternType, pattern, errorManager);
     }
 
     private boolean validatePatternType(
