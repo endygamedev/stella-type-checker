@@ -19,4 +19,9 @@ public final class BoolType extends Type {
         }
         return other instanceof BoolType;
     }
+
+    @Override
+    public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
+        return true;
+    }
 }

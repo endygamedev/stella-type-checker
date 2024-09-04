@@ -19,4 +19,9 @@ public final class UnitType extends Type {
         }
         return other instanceof UnitType;
     }
+
+    @Override
+    public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
+        return true;
+    }
 }

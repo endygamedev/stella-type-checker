@@ -41,4 +41,15 @@ public final class FunctionalType extends Type {
         FunctionalType functionalType = (FunctionalType) other;
         return from.equals(functionalType.from) && to.equals(functionalType.to);
     }
+
+    @Override
+    public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
+        if (this.equals(other)) return true;
+        if (!subtypingEnabled) return false;
+        if (other instanceof FunctionalType otherFunc) {
+            return otherFunc.from.isSubtypeOf(this.from, subtypingEnabled)
+                    && this.to.isSubtypeOf(otherFunc.to, subtypingEnabled);
+        }
+        return false;
+    }
 }

@@ -19,6 +19,12 @@ public final class MainFunctionCheckerVisitor extends stellaParserBaseVisitor<Vo
     public Void visitDeclFun(stellaParser.DeclFunContext ctx) {
         if (ctx != null && MAIN_FUNCTION_NAME.equals(ctx.name.getText())) {
             isMainDiscovered = true;
+            if (ctx.paramDecls.size() != 1) {
+                errorManager.registerError(
+                        ErrorType.ERROR_INCORRECT_ARITY_OF_MAIN,
+                        ctx.paramDecls.size()
+                );
+            }
         }
         return super.visitDeclFun(ctx);
     }

@@ -8,13 +8,27 @@ public class TypeContext {
     private final TypeContext parent;
     private final Map<String, Type> variantTypes = new HashMap<>();
     private final Map<String, FunctionalType> functionTypes = new HashMap<>();
+    private Type exceptionType;
 
     public TypeContext() {
         this.parent = null;
+        this.exceptionType = null;
     }
 
     public TypeContext(TypeContext parent) {
         this.parent = parent;
+        this.exceptionType = null;
+    }
+
+    public void setExceptionType(Type exceptionType) {
+        this.exceptionType = exceptionType;
+    }
+
+    public Type getExceptionType() {
+        if (exceptionType != null) {
+            return exceptionType;
+        }
+        return parent != null ? parent.getExceptionType() : null;
     }
 
     public void saveVariableType(String name, Type type) {

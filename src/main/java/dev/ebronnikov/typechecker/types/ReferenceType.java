@@ -1,19 +1,15 @@
 package dev.ebronnikov.typechecker.types;
 
-import java.awt.*;
+import java.util.Objects;
 
-public final class ListType extends Type {
-    private final Type type;
+public final class ReferenceType extends Type {
+    private final Type innerType;
     private final String name;
 
-    public ListType(Type type) {
+    public ReferenceType(Type innerType) {
         super(true);
-        this.type = type;
-        this.name = String.format("List[%s]", type.getName());
-    }
-
-    public Type getType() {
-        return type;
+        this.innerType = innerType;
+        this.name = "&" + innerType.getName();
     }
 
     @Override
@@ -25,16 +21,20 @@ public final class ListType extends Type {
     public boolean equals(Object other) {
         if (this == other) return true;
         if (other == null || getClass() != other.getClass()) return false;
-        ListType listType = (ListType) other;
-        return type.equals(listType.type);
+        ReferenceType that = (ReferenceType) other;
+        return Objects.equals(innerType, that.innerType);
+    }
+
+    public Type getInnerType() {
+        return innerType;
     }
 
     @Override
     public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
         if (this.equals(other)) return true;
         if (!subtypingEnabled) return false;
-        if (other instanceof ListType otherList) {
-            return this.type.isSubtypeOf(otherList.type, subtypingEnabled);
+        if (other instanceof ReferenceType otherRef) {
+            return this.innerType.isSubtypeOf(otherRef.innerType, subtypingEnabled);
         }
         return false;
     }

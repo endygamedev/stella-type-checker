@@ -1,20 +1,23 @@
 package dev.ebronnikov.typechecker.types;
 
 import dev.ebronnikov.antlr.stellaParser.*;
+import dev.ebronnikov.typechecker.checker.ExhaustivenessChecker;
+import dev.ebronnikov.typechecker.checker.ExtensionManager;
 import dev.ebronnikov.typechecker.errors.ErrorManager;
 import dev.ebronnikov.typechecker.errors.ErrorType;
 import org.antlr.v4.runtime.ParserRuleContext;
+import dev.ebronnikov.typechecker.utils.Pair;
 
 import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public final class TypeInferrer {
     private final ErrorManager errorManager;
+    private final ExtensionManager extensionManager;
     private final TypeContext context;
 
-    public TypeInferrer(ErrorManager errorManager, TypeContext parentContext) {
+    public TypeInferrer(ErrorManager errorManager, ExtensionManager extensionManager, TypeContext parentContext) {
         this.errorManager = errorManager;
+        this.extensionManager = extensionManager;
         this.context = new TypeContext(parentContext);
     }
 
@@ -31,7 +34,8 @@ public final class TypeInferrer {
             case DotRecordContext dotRecordContext -> visitDotRecord(dotRecordContext, expectedType);
             case AbstractionContext abstractionContext -> visitAbstraction(abstractionContext, expectedType);
             case ApplicationContext applicationContext -> visitApplication(applicationContext, expectedType);
-            case ParenthesisedExprContext parenthesisedExprContext -> visitExpression(parenthesisedExprContext.expr_, expectedType);
+            case ParenthesisedExprContext parenthesisedExprContext ->
+                    visitExpression(parenthesisedExprContext.expr_, expectedType);
             case RecordContext recordContext -> visitRecord(recordContext, expectedType);
             case LetContext letContext -> visitLet(letContext, expectedType);
             case TypeAscContext typeAscContext -> visitTypeAsc(typeAscContext, expectedType);
@@ -39,7 +43,8 @@ public final class TypeInferrer {
             case DotTupleContext dotTupleContext -> visitDotTuple(dotTupleContext, expectedType);
             case IfContext ifContext -> visitIf(ifContext, expectedType);
             case TupleContext tupleContext -> visitTuple(tupleContext, expectedType);
-            case TerminatingSemicolonContext terminatingSemicolonContext -> visitExpression(terminatingSemicolonContext.expr_, expectedType);
+            case TerminatingSemicolonContext terminatingSemicolonContext ->
+                    visitExpression(terminatingSemicolonContext.expr_, expectedType);
             case FixContext fixContext -> visitFix(fixContext, expectedType);
             case MatchContext matchContext -> visitMatch(matchContext, expectedType);
             case InlContext inlContext -> visitInl(inlContext, expectedType);
@@ -50,11 +55,26 @@ public final class TypeInferrer {
             case HeadContext headContext -> visitHead(headContext, expectedType);
             case TailContext tailContext -> visitTail(tailContext, expectedType);
             case IsEmptyContext isEmptyContext -> visitIsEmpty(isEmptyContext, expectedType);
+            case SequenceContext sequenceContext -> visitSequence(sequenceContext, expectedType);
+            case RefContext refContext -> visitRef(refContext, expectedType);
+            case ConstMemoryContext constMemoryContext -> visitConstMemory(constMemoryContext, expectedType);
+            case DerefContext derefContext -> visitDeref(derefContext, expectedType);
+            case AssignContext assignContext -> visitAssign(assignContext, expectedType);
+            case PanicContext panicContext -> visitPanic(panicContext, expectedType);
+            case ThrowContext throwContext -> visitThrow(throwContext, expectedType);
+            case TryWithContext tryWithContext -> visitTryWith(tryWithContext, expectedType);
+            case TryCatchContext tryCatchContext -> visitTryCatch(tryCatchContext, expectedType);
+            case TypeCastContext typeCastContext -> visitTypeCast(typeCastContext, expectedType);
             default -> {
                 System.out.printf("Unsupported syntax for %s%n", ctx.getClass().getSimpleName());
                 yield null;
             }
         };
+
+        if (type == null) {
+            return null;
+        }
+
         return validateTypes(type, expectedType, ctx);
     }
 
@@ -81,8 +101,6 @@ public final class TypeInferrer {
 
     private Type visitVar(VarContext ctx, Type expectedType) {
         String name = ctx.name.getText();
-
-        // NOTE: MAYBE SHIT HERE !!!!
         Type type = context.resolveVariableType(name).orElseGet(() -> context.resolveFunctionType(name).orElse(null));
 
         if (type == null) {
@@ -96,7 +114,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        if (expectedType != null && !type.equals(expectedType)) {
+        if (expectedType != null && !type.isSubtypeOf(expectedType, extensionManager.isStructuralSubtyping())) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -174,10 +192,10 @@ public final class TypeInferrer {
         TypeContext innerContext = new TypeContext(context);
         innerContext.saveVariableType(arg.name.getText(), argType);
 
-        TypeInferrer innerInferrer = new TypeInferrer(errorManager, innerContext);
+        TypeInferrer innerInferrer = new TypeInferrer(errorManager, extensionManager, innerContext);
 
         var returnExpr = ctx.returnExpr;
-        Type returnType = innerInferrer.visitExpression(returnExpr, null);
+        Type returnType = innerInferrer.visitExpression(returnExpr, (expectedType != null) ? ((FunctionalType) expectedType).getTo() : null);
         if (returnType == null) {
             return null;
         }
@@ -205,12 +223,11 @@ public final class TypeInferrer {
             return null;
         }
 
-        var arg = ctx.args.getFirst();
-        if (visitExpression(arg, functionalType.getFrom()) == null) {
-            return null;
-        }
-
         Type resultType = functionalType.getTo();
+
+        var arg = ctx.args.getFirst();
+        visitExpression(arg, functionalType.getFrom());
+
         return validateTypes(resultType, expectedType, ctx);
     }
 
@@ -273,7 +290,7 @@ public final class TypeInferrer {
         extraFields.removeAll(expectedLabelsSet);
 
         if (!extraFields.isEmpty()) {
-            if(errorManager != null) {
+            if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_RECORD_FIELDS,
                         extraFields.iterator().next(),
@@ -318,19 +335,19 @@ public final class TypeInferrer {
                     return false;
                 }
             } else {
-               if (!type.equals(expectedTypeForLabel)) {
-                   if (!(expectedTypeForLabel instanceof RecordType)) {
-                       if (errorManager != null) {
-                           errorManager.registerError(
-                                   ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                                   expectedTypeForLabel,
-                                   type,
-                                   ctx
-                           );
-                       }
-                       return false;
-                   }
-               }
+                if (!type.equals(expectedTypeForLabel)) {
+                    if (!(expectedTypeForLabel instanceof RecordType)) {
+                        if (errorManager != null) {
+                            errorManager.registerError(
+                                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                                    expectedTypeForLabel,
+                                    type,
+                                    ctx
+                            );
+                        }
+                        return false;
+                    }
+                }
             }
         }
 
@@ -350,7 +367,7 @@ public final class TypeInferrer {
         TypeContext letContext = new TypeContext(context);
         letContext.saveVariableType(name, expressionType);
 
-        TypeInferrer letTypeInferrer = new TypeInferrer(errorManager, letContext);
+        TypeInferrer letTypeInferrer = new TypeInferrer(errorManager, extensionManager, letContext);
         return letTypeInferrer.visitExpression(ctx.body, expectedType);
     }
 
@@ -510,22 +527,19 @@ public final class TypeInferrer {
     }
 
     private Type visitIf(IfContext ctx, Type expectedType) {
-        Type conditionType = visitExpression(ctx.condition, BoolType.INSTANCE);
-        if (conditionType != BoolType.INSTANCE) {
-            return null;
-        }
+        visitExpression(ctx.condition, BoolType.INSTANCE);
 
         Type thenType = visitExpression(ctx.thenExpr, expectedType);
-        if (thenType != expectedType) {
+        if (thenType == null) {
             return null;
         }
 
-        Type elseType = visitExpression(ctx.elseExpr, expectedType);
-        if (elseType != expectedType) {
+        Type elseType = visitExpression(ctx.elseExpr, thenType);
+        if (elseType == null) {
             return null;
         }
 
-        if (!thenType.equals(elseType)) {
+        if (!elseType.equals(thenType)) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -534,10 +548,10 @@ public final class TypeInferrer {
                         ctx.elseExpr
                 );
             }
-            return  null;
+            return null;
         }
 
-        return thenType;
+        return elseType;
     }
 
     private TupleType visitTuple(TupleContext ctx, Type expectedType) {
@@ -555,7 +569,7 @@ public final class TypeInferrer {
                 );
             }
 
-            return  null;
+            return null;
         }
 
         List<ExprContext> content = ctx.exprs;
@@ -612,13 +626,12 @@ public final class TypeInferrer {
     }
 
     private Type visitMatch(MatchContext ctx, Type expectedType) {
-        ExprContext expression = ctx.expr_;
-        Type expressionType = visitExpression(expression, null);
+        Type expressionType = visitExpression(ctx.expr_, null);
         if (expressionType == null) {
             return null;
         }
 
-        ArrayList<MatchCaseContext> cases = (ArrayList<MatchCaseContext>) ctx.cases;
+        List<MatchCaseContext> cases = ctx.cases;
         if (cases.isEmpty()) {
             if (errorManager != null) {
                 errorManager.registerError(
@@ -633,103 +646,91 @@ public final class TypeInferrer {
                 .map(MatchCaseContext::pattern)
                 .toList();
 
-        PatternContext wrongPattern = findWrongPattern(patterns, expressionType);
-        if (wrongPattern != null) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_PATTERN_FOR_TYPE,
-                        wrongPattern,
-                        ctx
-                );
-            }
+        ExhaustivenessChecker exhaustivenessChecker = new ExhaustivenessChecker();
+        if (!exhaustivenessChecker.checkForPatternsTypeMismatch(patterns, expressionType, errorManager)) {
             return null;
         }
 
-        boolean arePatternsExhaustive = arePatternsExhaustive(patterns, expressionType);
-        if (!arePatternsExhaustive) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS,
-                        expressionType
-                );
-            }
+        PatternContext wrongPattern = exhaustivenessChecker.findWrongPattern(patterns, expressionType);
+        if (wrongPattern != null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_PATTERN_FOR_TYPE,
+                    wrongPattern,
+                    ctx
+            );
+            return null;
+        }
+
+        boolean arePatternExhaustive = exhaustivenessChecker.arePatternsExhaustive(patterns, expressionType);
+        if (!arePatternExhaustive) {
+            errorManager.registerError(
+                    ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS,
+                    expressionType
+            );
             return null;
         }
 
         Type resultType = null;
-        for (MatchCaseContext caseCtx : cases) {
-            TypeContext caseContext = new TypeContext(context);
-            TypeInferrer caseInferrer = new TypeInferrer(errorManager, caseContext);
 
-            PatternContext pattern = caseCtx.pattern_;
-            ExprContext bodyExpr = caseCtx.expr_;
+        for (MatchCaseContext caseContext : cases) {
+            TypeContext caseTypeContext = new TypeContext(context);
+            TypeInferrer caseInferrer = new TypeInferrer(errorManager, extensionManager, caseTypeContext);
 
-            Type caseType;
-            switch (pattern) {
-                case PatternInlContext patternInlContext -> {
-                    String variableName = Optional.ofNullable(patternInlContext.pattern_)
-                            .filter(p -> p instanceof PatternVarContext)
-                            .map(p -> ((PatternVarContext) p).name.getText())
-                            .orElse(null);
-                    if (variableName == null) return null;
-                    Type type = ((SumType) expressionType).getLeft();
-                    caseContext.saveVariableType(variableName, type);
-                    caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
+            PatternContext pattern = caseContext.pattern_;
+            ExprContext bodyExpr = caseContext.expr_;
+
+            Type caseType = null;
+
+            if (pattern instanceof PatternInlContext) {
+                SumType sumType = (SumType) expressionType;
+                String variableName = ((PatternVarContext) ((PatternInlContext) pattern).pattern_).name.getText();
+                if (variableName == null) return null;
+                Type type = sumType.getLeft();
+                caseTypeContext.saveVariableType(variableName, type);
+                caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
+            } else if (pattern instanceof PatternInrContext) {
+                SumType sumType = (SumType) expressionType;
+                String variableName = ((PatternVarContext) ((PatternInrContext) pattern).pattern_).name.getText();
+                if (variableName == null) return null;
+                Type type = sumType.getRight();
+                caseTypeContext.saveVariableType(variableName, type);
+                caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
+            } else if (pattern instanceof PatternVariantContext) {
+                VariantType variantType = (VariantType) expressionType;
+                String labelName = ((PatternVariantContext) pattern).label.getText();
+                int labelIndex = variantType.getLabels().indexOf(labelName);
+                if (labelIndex == -1) {
+                    errorManager.registerError(
+                            ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL,
+                            labelName,
+                            pattern,
+                            expectedType != null ? expectedType : null
+                    );
+                    return null;
                 }
-                case PatternInrContext patternInrContext -> {
-                    String variableName = Optional.ofNullable(patternInrContext.pattern_)
-                            .filter(p -> p instanceof PatternVarContext)
-                            .map(p -> ((PatternVarContext) p).name.getText())
-                            .orElse(null);
-                    if (variableName == null) return null;
-                    Type type = ((SumType) expressionType).getRight();
-                    caseContext.saveVariableType(variableName, type);
-                    caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
-                }
-                case PatternVariantContext patternVariantContext -> {
-                    String labelName = patternVariantContext.label.getText();
-                    int labelIndex = ((VariantType) expressionType).getLabels().indexOf(labelName);
-                    if (labelIndex == -1) {
-                        if (errorManager != null) {
-                            errorManager.registerError(
-                                    // NOTE: Strange error
-                                    ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL,
-                                    labelName,
-                                    pattern,
-                                    expectedType
-                            );
-                        }
-                        return null;
-                    }
-                    Type labelType = ((VariantType) expressionType).getTypes().get(labelIndex);
-                    String variableName = Optional.ofNullable(patternVariantContext.pattern_)
-                            .filter(p -> p instanceof PatternVarContext)
-                            .map(p -> ((PatternVarContext) p).name.getText())
-                            .orElse(null);
-                    caseContext.saveVariableType(variableName, labelType);
-                    caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
-                }
-                case PatternVarContext patternVarContext -> {
-                    String variableName = patternVarContext.name.getText();
-                    caseContext.saveVariableType(variableName, expressionType);
-                    caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
-                }
-                case null, default -> caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
+
+                Type labelType = variantType.getTypes().get(labelIndex);
+                String variableName = ((PatternVarContext) ((PatternVariantContext) pattern).pattern_).name.getText();
+                if (variableName == null) return null;
+                caseTypeContext.saveVariableType(variableName, labelType);
+                caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
+            } else if (pattern instanceof PatternVarContext) {
+                String variableName = ((PatternVarContext) pattern).name.getText();
+                caseTypeContext.saveVariableType(variableName, expressionType);
+                caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
+            } else {
+                caseType = caseInferrer.visitExpression(bodyExpr, expectedType);
             }
 
-            if (caseType == null) {
-                return null;
-            }
+            if (caseType == null) return null;
 
             if (resultType != null && !resultType.equals(caseType)) {
-                if (errorManager != null) {
-                    errorManager.registerError(
-                            ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                            resultType,
-                            caseType,
-                            bodyExpr
-                    );
-                }
+                errorManager.registerError(
+                        ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                        resultType,
+                        caseType,
+                        bodyExpr
+                );
             }
 
             resultType = caseType;
@@ -737,142 +738,6 @@ public final class TypeInferrer {
 
         return resultType;
     }
-
-    private boolean arePatternsExhaustive(List<PatternContext> patterns, Type type) {
-        return hasAny(patterns) || switch (type) {
-            case BoolType ignored -> areBoolPatternsExhaustive(patterns);
-            case NatType ignored -> areNatPatternsExhaustive(patterns);
-            case SumType ignored -> areSumTypePatternsExhaustive(patterns);
-            case UnitType ignored -> areUnitPatternsExhaustive(patterns);
-            case TupleType ignored -> throw new UnsupportedOperationException("Not yes implemented");
-            case RecordType ignored -> throw new UnsupportedOperationException("Not yes implemented");
-            case VariantType variantType -> areVariantPatternsExhaustive(patterns, variantType);
-            case FunctionalType ignored -> false;
-            case ListType ignored -> false;
-            case UnknownType ignored -> throw new IllegalStateException(String.format("Wrong type %s", type));
-            default -> throw new IllegalStateException(String.format("Unexpected value: %s", type));
-        };
-    }
-
-    private boolean areBoolPatternsExhaustive(List<PatternContext> patterns) {
-        return patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternTrueContext) &&
-                patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternFalseContext);
-    }
-
-    private boolean areNatPatternsExhaustive(List<PatternContext> patterns) {
-        return patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternIntContext) &&
-                patterns.stream()
-                        .anyMatch(pattern -> pattern instanceof PatternSuccContext &&
-                                ((PatternSuccContext) pattern).pattern_ instanceof PatternVarContext);
-    }
-
-    private boolean areSumTypePatternsExhaustive(List<PatternContext> patterns) {
-        return patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternInlContext) &&
-                patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternInrContext);
-    }
-
-    private boolean areUnitPatternsExhaustive(List<PatternContext> patterns) {
-        return patterns.stream()
-                .anyMatch(pattern -> pattern instanceof PatternUnitContext);
-    }
-
-    private boolean areVariantPatternsExhaustive(List<PatternContext> patterns, VariantType type) {
-        HashSet<String> labelsInType = new HashSet<>(type.getLabels());
-        HashSet<String> labelsInPattern = (HashSet<String>) patterns.stream()
-                .filter(pattern -> pattern instanceof PatternVariantContext)
-                .map(pattern -> ((PatternVariantContext) pattern).label.getText())
-                .collect(Collectors.toSet());
-        return labelsInPattern.containsAll(labelsInType);
-    }
-
-    private boolean hasAny(List<PatternContext> patterns) {
-        return patterns.stream()
-                .anyMatch(pattern -> pattern instanceof PatternVarContext);
-    }
-
-    private PatternContext findWrongPattern(List<PatternContext> patterns, Type type) {
-        return switch (type) {
-            case BoolType ignored -> findWrongBoolPattern(patterns);
-            case NatType ignored -> findWrongNatPattern(patterns);
-            case SumType ignored -> findWrongSumTypePattern(patterns);
-            case UnitType ignored -> findWrongUnitPattern(patterns);
-            case VariantType variantType -> findWrongVariantPattern(patterns, variantType);
-            case TupleType ignored -> {
-                throw new UnsupportedOperationException("Handling for TupleType is not yet implemented");
-            }
-            case RecordType ignored -> {
-                throw new UnsupportedOperationException("Handling for RecordType is not yet implemented");
-            }
-            case FunctionalType ignored -> findNotVarPattern(patterns);
-            case ListType ignored -> findNotVarPattern(patterns);
-            case UnknownType ignored -> throw  new IllegalStateException(String.format("Unexpected type: %s", type));
-            default -> throw new IllegalArgumentException(String.format("Unhandled type: %s", type));
-        };
-    }
-
-    private PatternContext findWrongBoolPattern(List<PatternContext> patterns) {
-        return patterns.stream()
-                .filter(pattern -> pattern instanceof PatternTrueContext ||
-                        pattern instanceof PatternFalseContext ||
-                        pattern instanceof PatternVarContext)
-                .findFirst()
-                .orElse(null);
-    }
-
-    private PatternContext findWrongNatPattern(List<PatternContext> patterns) {
-        return patterns.stream()
-                .filter(pattern ->
-                        !(pattern instanceof PatternIntContext) &&
-                        !(pattern instanceof PatternSuccContext succContext &&
-                            succContext.pattern_ instanceof PatternVarContext) &&
-                        !(pattern instanceof PatternVarContext))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private PatternContext findWrongSumTypePattern(List<PatternContext> patterns) {
-        return patterns.stream()
-                .filter(pattern ->
-                        !(pattern instanceof PatternInlContext) &&
-                        !(pattern instanceof PatternInrContext) &&
-                        !(pattern instanceof PatternVarContext))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private PatternContext findWrongUnitPattern(List<PatternContext> patterns) {
-        return patterns.stream()
-                .filter(pattern ->
-                        !(pattern instanceof PatternUnitContext) &&
-                        !(pattern instanceof PatternVarContext))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private PatternContext findNotVarPattern(List<PatternContext> patterns) {
-        return patterns.stream()
-                .filter(pattern ->
-                        !(pattern instanceof PatternVarContext))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private PatternContext findWrongVariantPattern(List<PatternContext> patterns, VariantType type) {
-        HashSet<String> labelsInType = new HashSet<>(type.getLabels());
-        return patterns.stream()
-                .filter(pattern ->
-                        !(pattern instanceof PatternVarContext) &&
-                        !(pattern instanceof PatternVariantContext variantContext &&
-                                labelsInType.contains(variantContext.label.getText())))
-                .findFirst()
-                .orElse(null);
-    }
-
 
     private Type visitInl(InlContext ctx, Type expectedType) {
         if (expectedType == null) {
@@ -897,7 +762,7 @@ public final class TypeInferrer {
 
         Type leftType = sumType.getLeft();
 
-        if (visitExpression(ctx.expr_, leftType)== null) {
+        if (visitExpression(ctx.expr_, leftType) == null) {
             return null;
         }
 
@@ -927,7 +792,7 @@ public final class TypeInferrer {
 
         Type rightType = sumType.getRight();
 
-        if (visitExpression(ctx.expr_, rightType)== null) {
+        if (visitExpression(ctx.expr_, rightType) == null) {
             return null;
         }
 
@@ -936,7 +801,13 @@ public final class TypeInferrer {
 
     private VariantType visitVariant(VariantContext ctx, Type expectedType) {
         if (expectedType == null) {
-            throw new IllegalArgumentException(String.format("Cannot infer type of variant %s", ctx.toStringTree()));
+            if (errorManager != null) {
+                errorManager.registerError(
+                        ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE,
+                        ctx
+                );
+            }
+            return null;
         }
 
         if (!(expectedType instanceof VariantType variantType)) {
@@ -1007,10 +878,10 @@ public final class TypeInferrer {
         ListType listType = (expectedType instanceof ListType)
                 ? (ListType) expectedType
                 : expressionTypes.stream()
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .map(ListType::new)
-                    .orElse(null);
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(ListType::new)
+                .orElse(null);
 
         if (listType == null) return null;
 
@@ -1040,7 +911,7 @@ public final class TypeInferrer {
     }
 
     private ListType visitConsList(ConsListContext ctx, Type expectedType) {
-        if (expectedType != null && !(expectedType instanceof ListType)) {
+        if (expectedType != null && !(expectedType instanceof ListType || expectedType instanceof TopType)) {
             ListType listType = visitConsList(ctx, null);
 
             if (listType == null) return null;
@@ -1061,15 +932,7 @@ public final class TypeInferrer {
         if (headType == null) return null;
 
         if (expectedType instanceof ListType expectedListType) {
-            if (!expectedListType.getType().equals(headType)) {
-                if (errorManager != null) {
-                    errorManager.registerError(
-                            ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                            expectedListType.getType(),
-                            headType,
-                            head
-                    );
-                }
+            if (validateTypes(headType, expectedListType.getType(), ctx) == null) {
                 return null;
             }
         }
@@ -1172,106 +1035,363 @@ public final class TypeInferrer {
         return BoolType.INSTANCE;
     }
 
+    private Type visitSequence(SequenceContext ctx, Type expectedType) {
+        if (visitExpression(ctx.expr1, UnitType.INSTANCE) == null) {
+            return null;
+        }
+        return visitExpression(ctx.expr2, expectedType);
+    }
+
+    private ReferenceType visitRef(RefContext ctx, Type expectedType) {
+        if (expectedType != null && !(expectedType instanceof ReferenceType) && !(expectedType instanceof TopType)) {
+            ReferenceType ref = visitRef(ctx, null);
+            if (ref == null) {
+                return null;
+            }
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_REFERENCE,
+                    ref,
+                    expectedType
+            );
+            return null;
+        }
+
+        Type innerExpectedType = (expectedType instanceof ReferenceType referenceType)
+                ? referenceType.getInnerType()
+                : null;
+
+        Type innerType = visitExpression(ctx.expr_, innerExpectedType);
+        if (innerType == null) {
+            return null;
+        }
+
+        return new ReferenceType(innerType);
+    }
+
+    private Type visitConstMemory(ConstMemoryContext ctx, Type expectedType) {
+        if (expectedType == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_AMBIGUOUS_REFERENCE_TYPE,
+                    ctx
+            );
+            return null;
+        }
+
+        if (!(expectedType instanceof ReferenceType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_MEMORY_ADDRESS,
+                    ctx,
+                    expectedType
+            );
+            return null;
+        }
+
+        return expectedType;
+    }
+
+    private Type visitDeref(DerefContext ctx, Type expectedType) {
+        ReferenceType expectedRefType = (expectedType != null) ? new ReferenceType(expectedType) : null;
+        Type refType = visitExpression(ctx.expr_, expectedRefType);
+
+        if (refType == null) {
+            return null;
+        }
+
+        if (!(refType instanceof ReferenceType referenceType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_REFERENCE,
+                    refType
+            );
+            return null;
+        }
+
+        return validateTypes(referenceType.getInnerType(), expectedType, ctx);
+    }
+
+    private UnitType visitAssign(AssignContext ctx, Type expectedType) {
+        if (expectedType != null && !(expectedType instanceof UnitType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    UnitType.INSTANCE,
+                    expectedType,
+                    ctx
+            );
+            return null;
+        }
+
+        Type lhsType = visitExpression(ctx.lhs, null);
+        if (lhsType == null) {
+            return null;
+        }
+
+        if (!(lhsType instanceof ReferenceType lhsRefType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_REFERENCE,
+                    lhsType
+            );
+            return null;
+        }
+
+        Type rhsType = visitExpression(ctx.rhs, null);
+        if (rhsType == null) {
+            return null;
+        }
+
+        if (!lhsRefType.getInnerType().equals(rhsType)) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    lhsRefType.getInnerType(),
+                    rhsType,
+                    ctx
+            );
+            return null;
+        }
+
+        return UnitType.INSTANCE;
+    }
+
+    private Type visitPanic(PanicContext ctx, Type expectedType) {
+        if (expectedType == null) {
+            if (extensionManager.isAmbiguousTypeAsBottom()) {
+                return BotType.INSTANCE;
+            }
+            errorManager.registerError(
+                    ErrorType.ERROR_AMBIGUOUS_PANIC_TYPE,
+                    ctx
+            );
+
+            return null;
+        }
+
+        return expectedType;
+    }
+
+    private Type visitThrow(ThrowContext ctx, Type expectedType) {
+        if (expectedType == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_AMBIGUOUS_THROW_TYPE,
+                    ctx
+            );
+            return null;
+        }
+
+        Type exceptionType = context.getExceptionType();
+        if (exceptionType == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_EXCEPTION_TYPE_NOT_DECLARED
+            );
+            return null;
+        }
+
+        if (visitExpression(ctx.expr_, exceptionType) == null) {
+            return null;
+        }
+
+        return expectedType;
+    }
+
+    private Type visitTryWith(TryWithContext ctx, Type expectedType) {
+        Type mainType = visitExpression(ctx.tryExpr, expectedType);
+        if (mainType == null) {
+            return null;
+        }
+
+        if (visitExpression(ctx.fallbackExpr, mainType) == null) {
+            return null;
+        }
+
+        return mainType;
+    }
+
+    private Type visitTryCatch(TryCatchContext ctx, Type expectedType) {
+        Type mainType = visitExpression(ctx.tryExpr, expectedType);
+        if (mainType == null) {
+            return null;
+        }
+
+        if (visitExpression(ctx.fallbackExpr, expectedType) == null) {
+            return null;
+        }
+
+        return mainType;
+    }
+
+    private Type visitTypeCast(TypeCastContext ctx, Type expectedType) {
+        if (visitExpression(ctx.expr_, null) == null) {
+            return null;
+        }
+
+        Type actualType = SyntaxTypeProcessor.getType(ctx.type_);
+
+        return validateTypes(actualType, expectedType, ctx);
+    }
 
     private Type validateTypes(Type actualType, Type expectedType, ParserRuleContext expression) {
         if (expectedType == null) {
             return actualType;
         }
 
-        if (actualType instanceof FunctionalType && !(expectedType instanceof FunctionalType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_LAMBDA,
-                        expectedType,
-                        actualType,
-                        expression
-                );
+        if (actualType.isSubtypeOf(expectedType, extensionManager.isStructuralSubtyping())) {
+            return expectedType;
+        }
+
+        if (actualType instanceof RecordType actualRecordType && expectedType instanceof RecordType expectedRecordType) {
+            boolean result = validateRecords(actualRecordType, expectedRecordType, expression);
+            if (result) {
+                return expectedType;
             }
             return null;
         }
 
-        if (actualType instanceof TupleType && !(expectedType instanceof TupleType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_TUPLE,
-                        expectedType,
-                        actualType
-                );
-            }
-            return null;
-        }
-
-        if (actualType instanceof RecordType && !(expectedType instanceof RecordType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_RECORD,
-                        expectedType,
-                        actualType
-                );
-            }
-            return null;
-        }
-
-        if (!(actualType instanceof FunctionalType) && expectedType instanceof FunctionalType) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NOT_A_FUNCTION,
-                        actualType,
-                        expression
-                );
-            }
-            return null;
-        }
-
-        if (!(actualType instanceof TupleType) && expectedType instanceof TupleType) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NOT_A_TUPLE,
-                        actualType,
-                        expression
-                );
-            }
-            return null;
-        }
-
-        if (!(actualType instanceof RecordType) && expectedType instanceof RecordType) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NOT_A_RECORD,
-                        actualType,
-                        expression
-                );
-            }
-            return null;
-        }
-
-        if (actualType instanceof TupleType actualTupleType) {
-            TupleType expectedTupleType = (TupleType) expectedType;
+        if (actualType instanceof TupleType actualTupleType && expectedType instanceof TupleType expectedTupleType) {
             if (actualTupleType.getArity() != expectedTupleType.getArity()) {
-                if (errorManager != null) {
+                errorManager.registerError(
+                        ErrorType.ERROR_UNEXPECTED_TUPLE_LENGTH,
+                        expectedTupleType.getArity(),
+                        actualTupleType.getArity(),
+                        expression
+                );
+                return null;
+            }
+        }
+
+        if (actualType instanceof VariantType actualVariantType && expectedType instanceof VariantType expectedVariantType) {
+            List<String> expectedLabels = expectedVariantType.getLabels();
+            List<String> actualLabels = actualVariantType.getLabels();
+
+            if (!expectedLabels.containsAll(actualLabels)) {
+                String missingLabel = expectedLabels.stream()
+                        .filter(label -> !actualLabels.contains(label))
+                        .findFirst()
+                        .orElse(null);
+
+                if (missingLabel != null) {
                     errorManager.registerError(
-                            ErrorType.ERROR_UNEXPECTED_TUPLE_LENGTH,
-                            expectedTupleType.getArity(),
-                            actualTupleType.getArity(),
-                            expression
+                            ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL,
+                            missingLabel,
+                            expression,
+                            actualType
                     );
                 }
+                return null;
             }
-            return null;
         }
 
-        if (actualType == null || !actualType.equals(expectedType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                        expectedType,
-                        actualType,
-                        expression
-                );
-            }
-            return null;
+        if (extensionManager.isStructuralSubtyping()) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_SUBTYPE,
+                    expectedType,
+                    actualType,
+                    expression
+            );
+        } else {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    expectedType,
+                    actualType,
+                    expression
+            );
         }
 
-        return actualType;
+        return null;
     }
-}
+
+    private boolean validateRecords(RecordType expectedRecord, RecordType actualRecord, ParserRuleContext ctx) {
+        if (!expectedRecord.equals(actualRecord) && !extensionManager.isStructuralSubtyping()) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    expectedRecord,
+                    actualRecord,
+                    ctx
+            );
+            return false;
+        }
+
+        Set<Map.Entry<String, Type>> missingFields = new HashSet<>(expectedRecord.getLabels().size());
+        Set<Map.Entry<String, Type>> extraFields = new HashSet<>(actualRecord.getLabels().size());
+
+        Set<Map.Entry<String, Type>> expectedEntries = zip(expectedRecord.getLabels(), expectedRecord.getTypes());
+        Set<Map.Entry<String, Type>> actualEntries = zip(actualRecord.getLabels(), actualRecord.getTypes());
+
+        missingFields.addAll(actualEntries);
+        missingFields.removeAll(expectedEntries);
+
+        if (!missingFields.isEmpty()) {
+            if (extensionManager.isStructuralSubtyping() && missingFields.stream().allMatch(entry -> actualRecord.getLabels().contains(entry.getKey()))) {
+                errorManager.registerError(
+                        ErrorType.ERROR_UNEXPECTED_SUBTYPE,
+                        expectedRecord,
+                        actualRecord,
+                        ctx
+                );
+                return false;
+            }
+
+            Map.Entry<String, Type> missingField = missingFields.iterator().next();
+            errorManager.registerError(
+                    ErrorType.ERROR_MISSING_RECORD_FIELDS,
+                    missingField.getKey(),
+                    expectedRecord
+            );
+            return false;
+        }
+
+        if (!extraFields.isEmpty() && !extensionManager.isStructuralSubtyping()) {
+            Map.Entry<String, Type> extraField = extraFields.iterator().next();
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_RECORD_FIELDS,
+                    extraField.getKey(),
+                    expectedRecord
+            );
+            return false;
+        }
+
+        for (Map.Entry<String, Type> entry : zip(actualRecord.getLabels(), actualRecord.getTypes())) {
+            String label = entry.getKey();
+            Type type = entry.getValue();
+
+            int expectedTypeForLabelIdx = expectedRecord.getLabels().indexOf(label);
+            Type expectedTypeForLabel = (expectedTypeForLabelIdx >= 0) ? expectedRecord.getTypes().get(expectedTypeForLabelIdx) : null;
+
+            if (type instanceof RecordType) {
+                if (!(expectedTypeForLabel instanceof RecordType)) {
+                    errorManager.registerError(
+                            ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                            expectedTypeForLabel,
+                            type,
+                            ctx
+                    );
+                    return false;
+                }
+
+                if (!validateRecords((RecordType) expectedTypeForLabel, (RecordType) type, ctx)) {
+                    return false;
+                }
+            } else {
+                if (!type.equals(expectedTypeForLabel)) {
+                    if (!(expectedTypeForLabel instanceof RecordType)) {
+                        errorManager.registerError(
+                                ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                                expectedTypeForLabel,
+                                type,
+                                ctx
+                        );
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+        private Set<Map.Entry<String, Type>> zip(List < String > labels, List < Type > types){
+            Set<Map.Entry<String, Type>> entries = new HashSet<>();
+            for (int i = 0; i < labels.size(); ++i) {
+                String label = labels.get(i);
+                Type type = types.get(i);
+                entries.add(new AbstractMap.SimpleEntry<>(label, type));
+            }
+            return entries;
+        }
+    }
