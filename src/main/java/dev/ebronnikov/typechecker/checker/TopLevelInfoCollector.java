@@ -2,9 +2,7 @@ package dev.ebronnikov.typechecker.checker;
 
 import dev.ebronnikov.antlr.stellaParser;
 import dev.ebronnikov.antlr.stellaParserBaseVisitor;
-import dev.ebronnikov.typechecker.types.FunctionalType;
-import dev.ebronnikov.typechecker.types.SyntaxTypeProcessor;
-import dev.ebronnikov.typechecker.types.TypeContext;
+import dev.ebronnikov.typechecker.types.*;
 import dev.ebronnikov.typechecker.utils.AntlrUtils;
 import org.antlr.v4.runtime.tree.RuleNode;
 

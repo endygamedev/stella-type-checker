@@ -8,10 +8,12 @@ import java.util.List;
 public class TypeChecker implements Checker {
     private final TypeCheckerVisitor checkerVisitor;
     private final ExtensionManager extensionManager;
+    private final UnifySolver unifySolver;
 
     public TypeChecker(ErrorManager errorManager) {
         this.extensionManager = new ExtensionManager();
-        this.checkerVisitor = new TypeCheckerVisitor(errorManager, extensionManager, null);
+        this.unifySolver = new UnifySolver();
+        this.checkerVisitor = new TypeCheckerVisitor(errorManager, extensionManager, null, unifySolver);
     }
 
     @Override

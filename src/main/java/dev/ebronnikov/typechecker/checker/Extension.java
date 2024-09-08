@@ -36,7 +36,11 @@ public enum Extension {
     LETREC_BINDINGS("letrec-bindings"),
     LETREC_MANY_BINDINGS("letrec-many-bindings"),
     LET_PATTERNS("let-patterns"),
-    PATTERN_ASCRIPTIONS("pattern-ascriptions");
+    PATTERN_ASCRIPTIONS("pattern-ascriptions"),
+    ARITHMETIC_OPERATORS("arithmetic-operators"),
+    TYPE_CASE_PATTERNS("type-cast-patterns"),
+    TYPE_RECONSTRUCTION("type-reconstruction"),
+    UNIVERSAL_TYPES("universal-types");
 
     private final String extensionName;
     private static final Map<String, Extension> EXTENSION_MAP = new HashMap<>();

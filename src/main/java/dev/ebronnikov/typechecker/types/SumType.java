@@ -36,4 +36,18 @@ public final class SumType extends Type {
     public boolean isSubtypeOf(Type other, boolean subtypingEnabled) {
         return true;
     }
+
+    @Override
+    public Type replace(TypeVar what, Type to) {
+        return new SumType(this.left.replace(what, to), this.right.replace(what, to));
+    }
+
+    @Override
+    public Type getFirstUnresolvedType() {
+        Type leftFirstUnresolvedType = left.getFirstUnresolvedType();
+        if (leftFirstUnresolvedType != null) {
+            return leftFirstUnresolvedType;
+        }
+        return right.getFirstUnresolvedType();
+    }
 }

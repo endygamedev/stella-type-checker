@@ -1,6 +1,6 @@
 package dev.ebronnikov.typechecker.types;
 
-public abstract sealed class Type permits NatType, BoolType, UnitType, UnknownType, SumType, RecordType, TupleType, FunctionalType, ListType, VariantType, BotType, TopType, ReferenceType {
+public abstract sealed class Type permits NatType, BoolType, UnitType, UnknownType, SumType, RecordType, TupleType, FunctionalType, ListType, VariantType, BotType, TopType, ReferenceType, UniversalWrapperType, GenericType, TypeVar {
     private final boolean isKnownType;
 
     public Type(boolean isKnownType) {
@@ -17,5 +17,13 @@ public abstract sealed class Type permits NatType, BoolType, UnitType, UnknownTy
 
     public boolean isNotSubtypeOf(Type other, boolean subtypingEnabled) {
         return !isSubtypeOf(other, subtypingEnabled);
+    }
+
+    public Type replace(TypeVar what, Type to) {
+        return this;
+    }
+
+    public Type getFirstUnresolvedType() {
+        return null;
     }
 }

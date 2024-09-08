@@ -15,6 +15,10 @@ public final class ExtensionManager {
         return enabledExtensions.contains(Extension.STRUCTURAL_SUBTYPING);
     }
 
+    public boolean isTypeReconstructionEnabled() {
+        return enabledExtensions.contains(Extension.TYPE_RECONSTRUCTION);
+    }
+
     public void enabledExtensions(List<Extension> extensions) {
         enabledExtensions.addAll(extensions);
     }

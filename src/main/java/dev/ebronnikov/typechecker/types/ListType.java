@@ -38,4 +38,14 @@ public final class ListType extends Type {
         }
         return false;
     }
+
+    @Override
+    public Type replace(TypeVar what, Type to) {
+        return new ListType(this.type.replace(what, to));
+    }
+
+    @Override
+    public Type getFirstUnresolvedType() {
+        return type.getFirstUnresolvedType();
+    }
 }
