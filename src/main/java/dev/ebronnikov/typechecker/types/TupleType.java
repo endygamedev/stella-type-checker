@@ -2,6 +2,7 @@ package dev.ebronnikov.typechecker.types;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -58,5 +59,22 @@ public final class TupleType extends Type {
                     .allMatch(i -> this.types.get(i).isSubtypeOf(otherTuple.types.get(i), subtypingEnabled));
         }
         return false;
+    }
+
+    @Override
+    public Type replace(TypeVar what, Type to) {
+        List<Type> newTypes = types.stream()
+                .map(type -> type.replace(what, to))
+                .collect(Collectors.toList());
+        return new TupleType(newTypes);
+    }
+
+    @Override
+    public Type getFirstUnresolvedType() {
+        return types.stream()
+                .map(Type::getFirstUnresolvedType)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 }
