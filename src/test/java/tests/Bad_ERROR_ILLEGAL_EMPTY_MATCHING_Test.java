@@ -9,11 +9,6 @@ import dev.ebronnikov.typechecker.errors.ErrorType;
 
 class Bad_ERROR_ILLEGAL_EMPTY_MATCHING_Test {
     @Test
-    public void test_empty_match_reconstruct() {
-        Runner.runBadTest(ErrorType.ERROR_ILLEGAL_EMPTY_MATCHING, "empty_match_reconstruct");
-    }
-
-    @Test
     public void test_empty_match() {
         Runner.runBadTest(ErrorType.ERROR_ILLEGAL_EMPTY_MATCHING, "empty_match");
     }

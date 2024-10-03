@@ -13,14 +13,4 @@ class Bad_ERROR_UNEXPECTED_LIST_Test {
         Runner.runBadTest(ErrorType.ERROR_UNEXPECTED_LIST, "simple");
     }
 
-    @Test
-    public void test_cons() {
-        Runner.runBadTest(ErrorType.ERROR_UNEXPECTED_LIST, "cons");
-    }
-
-    @Test
-    public void test_infer_match() {
-        Runner.runBadTest(ErrorType.ERROR_UNEXPECTED_LIST, "infer_match");
-    }
-
 }

@@ -14,18 +14,13 @@ class Bad_ERROR_AMBIGUOUS_VARIANT_TYPE_Test {
     }
 
     @Test
-    public void test_simple() {
-        Runner.runBadTest(ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE, "simple");
+    public void test_ambiguous_variant_type_2() {
+        Runner.runBadTest(ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE, "ambiguous-variant-type-2");
     }
 
     @Test
     public void test_ambiguous_variant_type_3() {
         Runner.runBadTest(ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE, "ambiguous-variant-type-3");
-    }
-
-    @Test
-    public void test_ambiguous_variant_type_2() {
-        Runner.runBadTest(ErrorType.ERROR_AMBIGUOUS_VARIANT_TYPE, "ambiguous-variant-type-2");
     }
 
 }

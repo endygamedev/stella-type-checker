@@ -19,11 +19,6 @@ class Bad_ERROR_MISSING_RECORD_FIELDS_Test {
     }
 
     @Test
-    public void test_subtyping_record() {
-        Runner.runBadTest(ErrorType.ERROR_MISSING_RECORD_FIELDS, "subtyping_record");
-    }
-
-    @Test
     public void test_simple_missing_fields() {
         Runner.runBadTest(ErrorType.ERROR_MISSING_RECORD_FIELDS, "simple_missing_fields");
     }

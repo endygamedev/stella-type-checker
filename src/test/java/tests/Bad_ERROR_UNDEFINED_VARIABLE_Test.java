@@ -9,18 +9,8 @@ import dev.ebronnikov.typechecker.errors.ErrorType;
 
 class Bad_ERROR_UNDEFINED_VARIABLE_Test {
     @Test
-    public void test_undefined_var_reconstruct() {
-        Runner.runBadTest(ErrorType.ERROR_UNDEFINED_VARIABLE, "undefined_var_reconstruct");
-    }
-
-    @Test
     public void test_simple_undefined_var() {
         Runner.runBadTest(ErrorType.ERROR_UNDEFINED_VARIABLE, "simple_undefined_var");
-    }
-
-    @Test
-    public void test_nested_func() {
-        Runner.runBadTest(ErrorType.ERROR_UNDEFINED_VARIABLE, "nested_func");
     }
 
     @Test

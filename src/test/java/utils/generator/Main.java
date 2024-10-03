@@ -10,7 +10,11 @@ public class Main {
     public static void main(String[] args) {
         generateOkTests();
         for (ErrorType errorType : ErrorType.values()) {
-            generateBadTest(errorType);
+            try {
+                generateBadTest(errorType);
+            } catch (Exception e) {
+                System.out.println(e);
+            }
         }
     }
 

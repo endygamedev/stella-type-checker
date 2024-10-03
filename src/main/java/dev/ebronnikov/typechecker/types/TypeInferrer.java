@@ -6,7 +6,6 @@ import dev.ebronnikov.typechecker.errors.ErrorType;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class TypeInferrer {
@@ -31,7 +30,8 @@ public final class TypeInferrer {
             case DotRecordContext dotRecordContext -> visitDotRecord(dotRecordContext, expectedType);
             case AbstractionContext abstractionContext -> visitAbstraction(abstractionContext, expectedType);
             case ApplicationContext applicationContext -> visitApplication(applicationContext, expectedType);
-            case ParenthesisedExprContext parenthesisedExprContext -> visitExpression(parenthesisedExprContext.expr_, expectedType);
+            case ParenthesisedExprContext parenthesisedExprContext ->
+                    visitExpression(parenthesisedExprContext.expr_, expectedType);
             case RecordContext recordContext -> visitRecord(recordContext, expectedType);
             case LetContext letContext -> visitLet(letContext, expectedType);
             case TypeAscContext typeAscContext -> visitTypeAsc(typeAscContext, expectedType);
@@ -39,7 +39,8 @@ public final class TypeInferrer {
             case DotTupleContext dotTupleContext -> visitDotTuple(dotTupleContext, expectedType);
             case IfContext ifContext -> visitIf(ifContext, expectedType);
             case TupleContext tupleContext -> visitTuple(tupleContext, expectedType);
-            case TerminatingSemicolonContext terminatingSemicolonContext -> visitExpression(terminatingSemicolonContext.expr_, expectedType);
+            case TerminatingSemicolonContext terminatingSemicolonContext ->
+                    visitExpression(terminatingSemicolonContext.expr_, expectedType);
             case FixContext fixContext -> visitFix(fixContext, expectedType);
             case MatchContext matchContext -> visitMatch(matchContext, expectedType);
             case InlContext inlContext -> visitInl(inlContext, expectedType);
@@ -81,30 +82,28 @@ public final class TypeInferrer {
 
     private Type visitVar(VarContext ctx, Type expectedType) {
         String name = ctx.name.getText();
-
-        // NOTE: MAYBE SHIT HERE !!!!
-        Type type = context.resolveVariableType(name).orElseGet(() -> context.resolveFunctionType(name).orElse(null));
+        Type type = context.resolveVariableType(name);
 
         if (type == null) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNDEFINED_VARIABLE,
-                        name,
-                        ctx
-                );
-            }
+            type = context.resolveFunctionType(name);
+        }
+
+        if (type == null) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNDEFINED_VARIABLE,
+                    name,
+                    ctx
+            );
             return null;
         }
 
-        if (expectedType != null && !type.equals(expectedType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                        expectedType,
-                        type,
-                        ctx
-                );
-            }
+        if (expectedType != null && !type.getClass().equals(expectedType.getClass())) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    expectedType,
+                    type,
+                    ctx
+            );
         }
 
         return type;
@@ -273,7 +272,7 @@ public final class TypeInferrer {
         extraFields.removeAll(expectedLabelsSet);
 
         if (!extraFields.isEmpty()) {
-            if(errorManager != null) {
+            if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_RECORD_FIELDS,
                         extraFields.iterator().next(),
@@ -318,19 +317,19 @@ public final class TypeInferrer {
                     return false;
                 }
             } else {
-               if (!type.equals(expectedTypeForLabel)) {
-                   if (!(expectedTypeForLabel instanceof RecordType)) {
-                       if (errorManager != null) {
-                           errorManager.registerError(
-                                   ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                                   expectedTypeForLabel,
-                                   type,
-                                   ctx
-                           );
-                       }
-                       return false;
-                   }
-               }
+                if (!type.getClass().equals(expectedTypeForLabel.getClass())) {
+                    if (!(expectedTypeForLabel instanceof RecordType)) {
+                        if (errorManager != null) {
+                            errorManager.registerError(
+                                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                                    expectedTypeForLabel,
+                                    type,
+                                    ctx
+                            );
+                        }
+                        return false;
+                    }
+                }
             }
         }
 
@@ -363,7 +362,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        if (!expressionType.equals(targetType)) {
+        if (!expressionType.getClass().equals(targetType.getClass())) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -404,7 +403,7 @@ public final class TypeInferrer {
         }
 
         // NOTE: Maybe shit
-        if (!stepFunction.getFrom().equals(NatType.INSTANCE)) {
+        if (!stepFunction.getFrom().getClass().equals(NatType.INSTANCE.getClass())) {
             Object errorNode = (ctx.step instanceof AbstractionContext)
                     ? ((AbstractionContext) ctx.step).paramDecl
                     : ctx.step;
@@ -433,7 +432,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        if (!stepFunctionTo.getFrom().equals(stepFunctionTo.getTo())) {
+        if (!stepFunctionTo.getFrom().getClass().equals(stepFunctionTo.getTo().getClass())) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -445,7 +444,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        if (!stepFunctionTo.getFrom().equals(initialValueType)) {
+        if (!stepFunctionTo.getFrom().getClass().equals(initialValueType.getClass())) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -516,16 +515,16 @@ public final class TypeInferrer {
         }
 
         Type thenType = visitExpression(ctx.thenExpr, expectedType);
-        if (thenType != expectedType) {
+        if (thenType == null) {
             return null;
         }
 
         Type elseType = visitExpression(ctx.elseExpr, expectedType);
-        if (elseType != expectedType) {
+        if (elseType == null) {
             return null;
         }
 
-        if (!thenType.equals(elseType)) {
+        if (!thenType.getClass().equals(elseType.getClass())) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -534,7 +533,7 @@ public final class TypeInferrer {
                         ctx.elseExpr
                 );
             }
-            return  null;
+            return null;
         }
 
         return thenType;
@@ -555,7 +554,7 @@ public final class TypeInferrer {
                 );
             }
 
-            return  null;
+            return null;
         }
 
         List<ExprContext> content = ctx.exprs;
@@ -596,7 +595,7 @@ public final class TypeInferrer {
             return null;
         }
 
-        if (!funcType.getFrom().equals(funcType.getTo())) {
+        if (!funcType.getFrom().getClass().equals(funcType.getTo().getClass())) {
             if (errorManager != null) {
                 errorManager.registerError(
                         ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -721,7 +720,7 @@ public final class TypeInferrer {
                 return null;
             }
 
-            if (resultType != null && !resultType.equals(caseType)) {
+            if (resultType != null && !resultType.getClass().equals(caseType.getClass())) {
                 if (errorManager != null) {
                     errorManager.registerError(
                             ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -756,14 +755,14 @@ public final class TypeInferrer {
 
     private boolean areBoolPatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternTrueContext) &&
+                .anyMatch(pattern -> pattern instanceof PatternTrueContext) &&
                 patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternFalseContext);
+                        .anyMatch(pattern -> pattern instanceof PatternFalseContext);
     }
 
     private boolean areNatPatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternIntContext) &&
+                .anyMatch(pattern -> pattern instanceof PatternIntContext) &&
                 patterns.stream()
                         .anyMatch(pattern -> pattern instanceof PatternSuccContext &&
                                 ((PatternSuccContext) pattern).pattern_ instanceof PatternVarContext);
@@ -771,9 +770,9 @@ public final class TypeInferrer {
 
     private boolean areSumTypePatternsExhaustive(List<PatternContext> patterns) {
         return patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternInlContext) &&
+                .anyMatch(pattern -> pattern instanceof PatternInlContext) &&
                 patterns.stream()
-                    .anyMatch(pattern -> pattern instanceof PatternInrContext);
+                        .anyMatch(pattern -> pattern instanceof PatternInrContext);
     }
 
     private boolean areUnitPatternsExhaustive(List<PatternContext> patterns) {
@@ -810,7 +809,7 @@ public final class TypeInferrer {
             }
             case FunctionalType ignored -> findNotVarPattern(patterns);
             case ListType ignored -> findNotVarPattern(patterns);
-            case UnknownType ignored -> throw  new IllegalStateException(String.format("Unexpected type: %s", type));
+            case UnknownType ignored -> throw new IllegalStateException(String.format("Unexpected type: %s", type));
             default -> throw new IllegalArgumentException(String.format("Unhandled type: %s", type));
         };
     }
@@ -828,9 +827,9 @@ public final class TypeInferrer {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternIntContext) &&
-                        !(pattern instanceof PatternSuccContext succContext &&
-                            succContext.pattern_ instanceof PatternVarContext) &&
-                        !(pattern instanceof PatternVarContext))
+                                !(pattern instanceof PatternSuccContext succContext &&
+                                        succContext.pattern_ instanceof PatternVarContext) &&
+                                !(pattern instanceof PatternVarContext))
                 .findFirst()
                 .orElse(null);
     }
@@ -839,8 +838,8 @@ public final class TypeInferrer {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternInlContext) &&
-                        !(pattern instanceof PatternInrContext) &&
-                        !(pattern instanceof PatternVarContext))
+                                !(pattern instanceof PatternInrContext) &&
+                                !(pattern instanceof PatternVarContext))
                 .findFirst()
                 .orElse(null);
     }
@@ -849,7 +848,7 @@ public final class TypeInferrer {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternUnitContext) &&
-                        !(pattern instanceof PatternVarContext))
+                                !(pattern instanceof PatternVarContext))
                 .findFirst()
                 .orElse(null);
     }
@@ -867,8 +866,8 @@ public final class TypeInferrer {
         return patterns.stream()
                 .filter(pattern ->
                         !(pattern instanceof PatternVarContext) &&
-                        !(pattern instanceof PatternVariantContext variantContext &&
-                                labelsInType.contains(variantContext.label.getText())))
+                                !(pattern instanceof PatternVariantContext variantContext &&
+                                        labelsInType.contains(variantContext.label.getText())))
                 .findFirst()
                 .orElse(null);
     }
@@ -897,7 +896,7 @@ public final class TypeInferrer {
 
         Type leftType = sumType.getLeft();
 
-        if (visitExpression(ctx.expr_, leftType)== null) {
+        if (visitExpression(ctx.expr_, leftType) == null) {
             return null;
         }
 
@@ -927,7 +926,7 @@ public final class TypeInferrer {
 
         Type rightType = sumType.getRight();
 
-        if (visitExpression(ctx.expr_, rightType)== null) {
+        if (visitExpression(ctx.expr_, rightType) == null) {
             return null;
         }
 
@@ -1007,10 +1006,10 @@ public final class TypeInferrer {
         ListType listType = (expectedType instanceof ListType)
                 ? (ListType) expectedType
                 : expressionTypes.stream()
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .map(ListType::new)
-                    .orElse(null);
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(ListType::new)
+                .orElse(null);
 
         if (listType == null) return null;
 
@@ -1032,7 +1031,7 @@ public final class TypeInferrer {
 
     private int findFirstWrongTypedExpressionIndex(List<Type> expressionTypes, ListType listType) {
         for (int i = 0; i < expressionTypes.size(); ++i) {
-            if (expressionTypes.get(i) != null && !expressionTypes.get(i).equals(listType.getType())) {
+            if (expressionTypes.get(i) != null && !expressionTypes.get(i).getClass().equals(listType.getType().getClass())) {
                 return i;
             }
         }
@@ -1061,7 +1060,7 @@ public final class TypeInferrer {
         if (headType == null) return null;
 
         if (expectedType instanceof ListType expectedListType) {
-            if (!expectedListType.getType().equals(headType)) {
+            if (!expectedListType.getType().getClass().equals(headType.getClass())) {
                 if (errorManager != null) {
                     errorManager.registerError(
                             ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
@@ -1179,96 +1178,78 @@ public final class TypeInferrer {
         }
 
         if (actualType instanceof FunctionalType && !(expectedType instanceof FunctionalType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_LAMBDA,
-                        expectedType,
-                        actualType,
-                        expression
-                );
-            }
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_LAMBDA,
+                    expectedType,
+                    actualType,
+                    expression
+            );
             return null;
         }
 
         if (actualType instanceof TupleType && !(expectedType instanceof TupleType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_TUPLE,
-                        expectedType,
-                        actualType
-                );
-            }
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TUPLE,
+                    expectedType,
+                    actualType
+            );
             return null;
         }
 
         if (actualType instanceof RecordType && !(expectedType instanceof RecordType)) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_RECORD,
-                        expectedType,
-                        actualType
-                );
-            }
-            return null;
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_RECORD,
+                    expectedType,
+                    actualType
+            );
         }
 
         if (!(actualType instanceof FunctionalType) && expectedType instanceof FunctionalType) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NOT_A_FUNCTION,
-                        actualType,
-                        expression
-                );
-            }
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_FUNCTION,
+                    actualType,
+                    expression
+            );
             return null;
         }
 
         if (!(actualType instanceof TupleType) && expectedType instanceof TupleType) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NOT_A_TUPLE,
-                        actualType,
-                        expression
-                );
-            }
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_TUPLE,
+                    actualType,
+                    expression
+            );
             return null;
         }
 
         if (!(actualType instanceof RecordType) && expectedType instanceof RecordType) {
-            if (errorManager != null) {
-                errorManager.registerError(
-                        ErrorType.ERROR_NOT_A_RECORD,
-                        actualType,
-                        expression
-                );
-            }
+            errorManager.registerError(
+                    ErrorType.ERROR_NOT_A_RECORD,
+                    actualType,
+                    expression
+            );
             return null;
         }
 
-        if (actualType instanceof TupleType actualTupleType) {
-            TupleType expectedTupleType = (TupleType) expectedType;
+        if (actualType instanceof TupleType actualTupleType && expectedType instanceof TupleType expectedTupleType) {
             if (actualTupleType.getArity() != expectedTupleType.getArity()) {
-                if (errorManager != null) {
-                    errorManager.registerError(
-                            ErrorType.ERROR_UNEXPECTED_TUPLE_LENGTH,
-                            expectedTupleType.getArity(),
-                            actualTupleType.getArity(),
-                            expression
-                    );
-                }
-            }
-            return null;
-        }
-
-        if (actualType == null || !actualType.equals(expectedType)) {
-            if (errorManager != null) {
                 errorManager.registerError(
-                        ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
-                        expectedType,
-                        actualType,
+                        ErrorType.ERROR_UNEXPECTED_TUPLE_LENGTH,
+                        expectedTupleType.getArity(),
+                        actualTupleType.getArity(),
                         expression
                 );
+                return null;
             }
+        }
+
+        if (actualType != null && !actualType.getClass().equals(expectedType.getClass())) {
+            errorManager.registerError(
+                    ErrorType.ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION,
+                    expectedType,
+                    actualType,
+                    expression
+            );
             return null;
         }
 

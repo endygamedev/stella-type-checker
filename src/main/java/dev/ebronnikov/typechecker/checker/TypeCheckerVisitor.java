@@ -30,8 +30,8 @@ public class TypeCheckerVisitor extends stellaParserBaseVisitor<Void> {
         String functionName = AntlrUtils.getFunctionName(ctx);
         var functionTypeOptional = typeContext.resolveFunctionType(functionName);
 
-        if (functionTypeOptional.isEmpty()) return null;
-        var functionType = functionTypeOptional.get();
+        if (functionTypeOptional == null) return null;
+        var functionType = functionTypeOptional;
         var expectedFunctionRetType = functionType.getTo();
 
         TypeContext functionContext = new TypeContext(typeContext);

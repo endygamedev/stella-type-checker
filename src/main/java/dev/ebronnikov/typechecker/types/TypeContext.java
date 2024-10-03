@@ -24,12 +24,12 @@ public class TypeContext {
         variantTypes.put(name, type);
     }
 
-    public Optional<Type> resolveVariableType(String name) {
+    public Type resolveVariableType(String name) {
         Type type = variantTypes.get(name);
         if (type == null && parent != null) {
             return parent.resolveVariableType(name);
         }
-        return Optional.ofNullable(type);
+        return type;
     }
 
     public void saveFunctionType(String functionName, FunctionalType type) {
@@ -39,11 +39,11 @@ public class TypeContext {
         functionTypes.put(functionName, type);
     }
 
-    public Optional<FunctionalType> resolveFunctionType(String name) {
+    public FunctionalType resolveFunctionType(String name) {
         FunctionalType type = functionTypes.get(name);
         if (type == null && parent != null) {
             return parent.resolveFunctionType(name);
         }
-        return Optional.ofNullable(type);
+        return type;
     }
 }

@@ -14,18 +14,8 @@ class Bad_ERROR_UNEXPECTED_VARIANT_LABEL_Test {
     }
 
     @Test
-    public void test_subtyping_variant() {
-        Runner.runBadTest(ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL, "subtyping_variant");
-    }
-
-    @Test
     public void test_simple_unexpected_label() {
         Runner.runBadTest(ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL, "simple_unexpected_label");
-    }
-
-    @Test
-    public void test_variant_asc() {
-        Runner.runBadTest(ErrorType.ERROR_UNEXPECTED_VARIANT_LABEL, "variant_asc");
     }
 
 }

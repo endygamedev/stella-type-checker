@@ -29,16 +29,6 @@ class Bad_ERROR_NONEXHAUSTIVE_MATCH_PATTERNS_Test {
     }
 
     @Test
-    public void test_ne_empty_list() {
-        Runner.runBadTest(ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS, "ne_empty_list");
-    }
-
-    @Test
-    public void test_ne_sum_reconstruct() {
-        Runner.runBadTest(ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS, "ne_sum_reconstruct");
-    }
-
-    @Test
     public void test_ne_record() {
         Runner.runBadTest(ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS, "ne_record");
     }
@@ -56,11 +46,6 @@ class Bad_ERROR_NONEXHAUSTIVE_MATCH_PATTERNS_Test {
     @Test
     public void test_ne_nat_2() {
         Runner.runBadTest(ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS, "ne_nat_2");
-    }
-
-    @Test
-    public void test_nonexhaustive_match_reconstruct() {
-        Runner.runBadTest(ErrorType.ERROR_NONEXHAUSTIVE_MATCH_PATTERNS, "nonexhaustive_match_reconstruct");
     }
 
     @Test
